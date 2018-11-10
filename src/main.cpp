@@ -1679,11 +1679,8 @@ int64_t GetMasternodePayment(int nHeight, uint32_t nTime, unsigned mnlevel, int6
         return 0;
 
     std::vector<unsigned> coeff;
-
-    if(nTime <= Params().F2ActivationTime())
-        coeff = { 3,  9, 15 };
-    else
-        coeff = { 5, 15, 25 };
+    
+	coeff = { 7, 18, 60 };
 
     if(mnlevel - 1 < coeff.size())
         return blockValue / 100 * coeff[mnlevel - 1];
