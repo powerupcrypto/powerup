@@ -1,712 +1,559 @@
-// Copyright (c) 2009-2010 Satoshi Nakamoto
+// Copyright (c) 2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin developers
 // Copyright (c) 2014-2015 The Dash developers
 // Copyright (c) 2015-2017 The PIVX developers
 // Copyright (c) 2017-2018 The PowerUpCoin Core developers
-// Distributed under the MIT/X11 software license, see the accompanying
+// Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
-#include "miner.h"
-
-#include "amount.h"
-#include "hash.h"
-#include "main.h"
-#include "masternode-sync.h"
-#include "net.h"
-#include "pow.h"
-#include "primitives/block.h"
-#include "primitives/transaction.h"
-#include "timedata.h"
+#include "chainparams.h"
+#include "random.h"
 #include "util.h"
-#include "utilmoneystr.h"
-#ifdef ENABLE_WALLET
-#include "wallet.h"
-#endif
-#include "masternode-payments.h"
+#include "utilstrencodings.h"
 
-#include <boost/thread.hpp>
-#include <boost/tuple/tuple.hpp>
+#include <mutex>
+#include <assert.h>
+#include <limits>
+
+#include <boost/assign/list_of.hpp>
 
 using namespace std;
+using namespace boost::assign;
 
-//////////////////////////////////////////////////////////////////////////////
-//
-// PUCMiner
-//
-
-//
-// Unconfirmed transactions in the memory pool often depend on other
-// transactions in the memory pool. When we select transactions from the
-// pool, we select by highest priority or fee rate, so we might consider
-// transactions that depend on transactions that aren't yet in the block.
-// The COrphan class keeps track of these 'temporary orphans' while
-// CreateBlock is figuring out which transactions to include.
-//
-class COrphan
-{
-public:
-    const CTransaction* ptx;
-    set<uint256> setDependsOn;
-    CFeeRate feeRate;
-    double dPriority;
-
-    COrphan(const CTransaction* ptxIn) : ptx(ptxIn), feeRate(0), dPriority(0)
-    {
-    }
+struct SeedSpec6 {
+    uint8_t addr[16];
+    uint16_t port;
 };
 
-uint64_t nLastBlockTx = 0;
-uint64_t nLastBlockSize = 0;
-int64_t nLastCoinStakeSearchInterval = 0;
+#include "chainparamsseeds.h"
 
-// We want to sort transactions by priority and fee rate, so:
-typedef boost::tuple<double, CFeeRate, const CTransaction*> TxPriority;
-class TxPriorityCompare
+/**
+ * Main network
+ */
+
+//! Convert the pnSeeds6 array into usable address objects.
+static void convertSeed6(std::vector<CAddress>& vSeedsOut, const SeedSpec6* data, unsigned int count)
 {
-    bool byFee;
-
-public:
-    TxPriorityCompare(bool _byFee) : byFee(_byFee) {}
-
-    bool operator()(const TxPriority& a, const TxPriority& b)
-    {
-        if (byFee) {
-            if (a.get<1>() == b.get<1>())
-                return a.get<0>() < b.get<0>();
-            return a.get<1>() < b.get<1>();
-        } else {
-            if (a.get<0>() == b.get<0>())
-                return a.get<1>() < b.get<1>();
-            return a.get<0>() < b.get<0>();
-        }
+    // It'll only connect to one or two seed nodes because once it connects,
+    // it'll get a pile of addresses with newer timestamps.
+    // Seed nodes are given a random 'last seen time' of between one and two
+    // weeks ago.
+    const int64_t nOneWeek = 7 * 24 * 60 * 60;
+    for (unsigned int i = 0; i < count; i++) {
+        struct in6_addr ip;
+        memcpy(&ip, data[i].addr, sizeof(ip));
+        CAddress addr(CService(ip, data[i].port));
+        addr.nTime = GetTime() - GetRand(nOneWeek) - nOneWeek;
+        vSeedsOut.push_back(addr);
     }
+}
+
+//   What makes a good checkpoint block?
+// + Is surrounded by blocks with reasonable timestamps
+//   (no blocks before with a timestamp after, none after with
+//    timestamp before)
+// + Contains no strange transactions
+static Checkpoints::MapCheckpoints mapCheckpoints =
+    boost::assign::map_list_of(0, uint256("000003b39d72ad4da1eb2ef2d044032dd95750cc25c435ecad2a236dd22b99fe"));
+
+static const Checkpoints::CCheckpointData data = {
+    &mapCheckpoints,
+    1540098739, // * UNIX timestamp of last checkpoint block
+    234944,      // * total number of transactions between genesis and last checkpoint
+                //   (the tx=... number in the SetBestChain debug.log lines)
+    2000        // * estimated number of transactions per day after checkpoint
 };
 
-void UpdateTime(CBlockHeader* pblock, const CBlockIndex* pindexPrev)
+static Checkpoints::MapCheckpoints mapCheckpointsTestnet =
+    boost::assign::map_list_of(0, uint256("000006b020d0db323b363c4d762b6931cff1855fd8a85a4455f416a91e9424f1"));
+static const Checkpoints::CCheckpointData dataTestnet = {
+    &mapCheckpointsTestnet,
+    1529667000,
+    0,
+    250};
+
+static Checkpoints::MapCheckpoints mapCheckpointsRegtest =
+    boost::assign::map_list_of(0, uint256("300552a9db8b2921c3c07e5bbf8694df5099db579742e243daeaf5008b1e74de"));
+static const Checkpoints::CCheckpointData dataRegtest = {
+    &mapCheckpointsRegtest,
+    1529668200,
+    0,
+    100};
+
+const CChainParams::SubsidySwitchPoints& CChainParams::GetSubsidySwitchPoints(uint32_t nTime, int nHeight) const
 {
-    pblock->nTime = std::max(pindexPrev->GetMedianTimePast() + 1, GetAdjustedTime());
+    if(nTime <= nHEXHashTimestamp)
+       return subsidySwitchPoints;
+    else if(nTime <= nF2Timestamp)
+       return subsidySwitchPoints_HEXHash;
+    else if(nHeight < static_cast<int>(subsidyScheduleStart_F2))
+        return subsidySwitchPoints_HEXHash;
+
+    auto decrease_interval = std::min(subsidyDecreaseCount_F2, (nHeight - subsidyScheduleStart_F2) / subsidyDecreaseInterval_F2);
+
+    return subsidySwitchPointsSchedule_F2.find(decrease_interval)->second;
 }
 
-CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn, CWallet* pwallet, bool fProofOfStake)
+CAmount CChainParams::SubsidyValue(SubsidySwitchPoints::key_type level, uint32_t nTime, int nHeight) const
 {
-    // Create new block
-    unique_ptr<CBlockTemplate> pblocktemplate(new CBlockTemplate());
+    const auto& switch_points = GetSubsidySwitchPoints(nTime, nHeight);
 
-    CBlock* pblock = &pblocktemplate->block; // pointer for convenience
+    SubsidySwitchPoints::const_iterator point = switch_points.upper_bound(level);
 
-    // -regtest only: allow overriding block.nVersion with
-    // -blockversion=N to test forking scenarios
-    if (Params().MineBlocksOnDemand())
-        pblock->nVersion = GetArg("-blockversion", pblock->nVersion);
+    if(point != switch_points.begin())
+        point = std::prev(point);
 
-    // Create coinbase tx
-    CMutableTransaction txNew;
-    txNew.vin.resize(1);
-    txNew.vin[0].prevout.SetNull();
-    txNew.vout.resize(1);
-    txNew.vout[0].SetEmpty();
-//    txNew.vout[0].scriptPubKey = scriptPubKeyIn;
+    return point->second;
+}
 
-    pblock->vtx.push_back(txNew);
+void CChainParams::initSubsidySwitchPointsSchedule()
+{
+    subsidySwitchPointsSchedule_F2[0u] = subsidySwitchPoints_F2_0;
 
-    pblocktemplate->vTxFees.push_back(-1);   // updated at end
-    pblocktemplate->vTxSigOps.push_back(-1); // updated at end
-
-    // ppcoin: if coinstake available add coinstake tx
-    static int64_t nLastCoinStakeSearchTime = GetAdjustedTime(); // only initialized at startup
-
-    if (fProofOfStake) {
-        boost::this_thread::interruption_point();
-        pblock->nTime = GetAdjustedTime();
-
-        { LOCK(cs_main);
-
-            CBlockIndex* pindexPrev = chainActive.Tip();
-            pblock->nBits = GetNextWorkRequired(pindexPrev, pblock->nTime);
-        }
-
-        CMutableTransaction txCoinStake;
-        int64_t nSearchTime = pblock->nTime; // search to current time
-        bool fStakeFound = false;
-        if (nSearchTime >= nLastCoinStakeSearchTime) {
-            unsigned int nTxNewTime = 0;
-            if (pwallet->CreateCoinStake(*pwallet, pblock->nTime, pblock->nBits, nSearchTime - nLastCoinStakeSearchTime, txCoinStake, nTxNewTime)) {
-                pblock->nTime = nTxNewTime;
-//                pblock->vtx[0].vout[0].SetEmpty();
-                pblock->vtx.push_back(CTransaction(txCoinStake));
-                fStakeFound = true;
-            }
-            nLastCoinStakeSearchInterval = nSearchTime - nLastCoinStakeSearchTime;
-            nLastCoinStakeSearchTime = nSearchTime;
-        }
-
-        if (!fStakeFound)
-            return nullptr;
-    }
-
-    // Largest block you're willing to create:
-    unsigned int nBlockMaxSize = GetArg("-blockmaxsize", DEFAULT_BLOCK_MAX_SIZE);
-    // Limit to betweeen 1K and MAX_BLOCK_SIZE-1K for sanity:
-    nBlockMaxSize = std::max((unsigned int)1000, std::min((unsigned int)(MAX_BLOCK_SIZE - 1000), nBlockMaxSize));
-
-    // How much of the block should be dedicated to high-priority transactions,
-    // included regardless of the fees they pay
-    unsigned int nBlockPrioritySize = GetArg("-blockprioritysize", DEFAULT_BLOCK_PRIORITY_SIZE);
-    nBlockPrioritySize = std::min(nBlockMaxSize, nBlockPrioritySize);
-
-    // Minimum block size you want to create; block will be filled with free transactions
-    // until there are no more or the block reaches this size:
-    unsigned int nBlockMinSize = GetArg("-blockminsize", DEFAULT_BLOCK_MIN_SIZE);
-    nBlockMinSize = std::min(nBlockMaxSize, nBlockMinSize);
-
-    // Collect memory pool transactions into the block
-    CAmount nFees = 0;
-
+    for(auto i = 1u; i <= subsidyDecreaseCount_F2; ++i)
     {
-        LOCK2(cs_main, mempool.cs);
+       subsidySwitchPointsSchedule_F2[i] = subsidySwitchPointsSchedule_F2[i - 1];
 
-        CBlockIndex* pindexPrev = chainActive.Tip();
-        const int nHeight = pindexPrev->nHeight + 1;
-        CCoinsViewCache view(pcoinsTip);
+       for(auto& sp : subsidySwitchPointsSchedule_F2[i])
+       {
+           auto prev_value = sp.second;
 
-        // Priority order to process transactions
-        list<COrphan> vOrphan; // list memory doesn't move
-        map<uint256, vector<COrphan*> > mapDependers;
-        bool fPrintPriority = GetBoolArg("-printpriority", false);
+           sp.second *= 10000u - subsidyDecreaseValue_F2;
+           sp.second /= 10000u;
+           sp.second += COIN / 10u - 1u;
+           sp.second /= COIN / 10u;
+           sp.second *= COIN / 10u;
 
-        // This vector will be sorted into a priority queue:
-        vector<TxPriority> vecPriority;
-        vecPriority.reserve(mempool.mapTx.size());
-        for (map<uint256, CTxMemPoolEntry>::iterator mi = mempool.mapTx.begin();
-             mi != mempool.mapTx.end(); ++mi) {
-            const CTransaction& tx = mi->second.GetTx();
-            if (tx.IsCoinBase() || tx.IsCoinStake() || !IsFinalTx(tx, nHeight))
-                continue;
-
-            COrphan* porphan = NULL;
-            double dPriority = 0;
-            CAmount nTotalIn = 0;
-            bool fMissingInputs = false;
-            BOOST_FOREACH (const CTxIn& txin, tx.vin) {
-                // Read prev transaction
-                if (!view.HaveCoins(txin.prevout.hash)) {
-                    // This should never happen; all transactions in the memory
-                    // pool should connect to either transactions in the chain
-                    // or other transactions in the memory pool.
-                    if (!mempool.mapTx.count(txin.prevout.hash)) {
-                        LogPrintf("ERROR: mempool transaction missing input\n");
-                        if (fDebug) assert("mempool transaction missing input" == 0);
-                        fMissingInputs = true;
-                        if (porphan)
-                            vOrphan.pop_back();
-                        break;
-                    }
-
-                    // Has to wait for dependencies
-                    if (!porphan) {
-                        // Use list for automatic deletion
-                        vOrphan.push_back(COrphan(&tx));
-                        porphan = &vOrphan.back();
-                    }
-                    mapDependers[txin.prevout.hash].push_back(porphan);
-                    porphan->setDependsOn.insert(txin.prevout.hash);
-                    nTotalIn += mempool.mapTx[txin.prevout.hash].GetTx().vout[txin.prevout.n].nValue;
-                    continue;
-                }
-                const CCoins* coins = view.AccessCoins(txin.prevout.hash);
-                assert(coins);
-
-                CAmount nValueIn = coins->vout[txin.prevout.n].nValue;
-                nTotalIn += nValueIn;
-
-                int nConf = nHeight - coins->nHeight;
-
-                dPriority += (double)nValueIn * nConf;
-            }
-            if (fMissingInputs) continue;
-
-            // Priority is sum(valuein * age) / modified_txsize
-            unsigned int nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
-            dPriority = tx.ComputePriority(dPriority, nTxSize);
-
-            uint256 hash = tx.GetHash();
-            mempool.ApplyDeltas(hash, dPriority, nTotalIn);
-
-            CFeeRate feeRate(nTotalIn - tx.GetValueOut(), nTxSize);
-
-            if (porphan) {
-                porphan->dPriority = dPriority;
-                porphan->feeRate = feeRate;
-            } else
-                vecPriority.push_back(TxPriority(dPriority, feeRate, &mi->second.GetTx()));
-        }
-
-        // Collect transactions into block
-        uint64_t nBlockSize = 1000;
-        uint64_t nBlockTx = 0;
-        int nBlockSigOps = 100;
-        bool fSortedByFee = (nBlockPrioritySize <= 0);
-
-        TxPriorityCompare comparer(fSortedByFee);
-        std::make_heap(vecPriority.begin(), vecPriority.end(), comparer);
-
-        while (!vecPriority.empty()) {
-            // Take highest priority transaction off the priority queue:
-            double dPriority = vecPriority.front().get<0>();
-            CFeeRate feeRate = vecPriority.front().get<1>();
-            const CTransaction& tx = *(vecPriority.front().get<2>());
-
-            std::pop_heap(vecPriority.begin(), vecPriority.end(), comparer);
-            vecPriority.pop_back();
-
-            // Size limits
-            unsigned int nTxSize = ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
-            if (nBlockSize + nTxSize >= nBlockMaxSize)
-                continue;
-
-            // Legacy limits on sigOps:
-            unsigned int nTxSigOps = GetLegacySigOpCount(tx);
-            if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS)
-                continue;
-
-            // Skip free transactions if we're past the minimum block size:
-            const uint256& hash = tx.GetHash();
-            double dPriorityDelta = 0;
-            CAmount nFeeDelta = 0;
-            mempool.ApplyDeltas(hash, dPriorityDelta, nFeeDelta);
-            if (fSortedByFee && (dPriorityDelta <= 0) && (nFeeDelta <= 0) && (feeRate < ::minRelayTxFee) && (nBlockSize + nTxSize >= nBlockMinSize))
-                continue;
-            
-void BitcoinMiner(CWallet* pwallet, bool fProofOfStake)
-{
-    LogPrintf("NorthernMiner started\n");
-    SetThreadPriority(THREAD_PRIORITY_LOWEST);
-    RenameThread("northern-miner");
-
-    // Each thread has its own key and counter
-    CReserveKey reservekey(pwallet);
-    unsigned int nExtraNonce = 0;
-
-    //control the amount of times the client will check for mintable coins
-    static bool fMintableCoins = false;
-    static int nMintableLastCheck = 0;
-
-    while (fGenerateBitcoins || fProofOfStake) {
-        if (fProofOfStake && (GetTime() - nMintableLastCheck > 5 * 60)) // 5 minute check time
-        {
-            nMintableLastCheck = GetTime();
-            fMintableCoins = pwallet->MintableCoins();
-        }
-
-        if (fProofOfStake) {
-            if (chainActive.Tip()->nHeight < Params().LAST_POW_BLOCK()) {
-                MilliSleep(5000);
-                continue;
-            }
-
-            if (chainActive.Tip()->nTime < Params().GenesisBlock().nTime || vNodes.empty() || pwallet->IsLocked() || !fMintableCoins || nReserveBalance >= pwallet->GetBalance()) {
-                nLastCoinStakeSearchInterval = 0;
-                MilliSleep(30000);
-                continue;
-            }
-
-            if (mapHashedBlocks.count(chainActive.Tip()->nHeight)) //search our map of hashed blocks, see if bestblock has been hashed yet
-            {
-                if (GetTime() - mapHashedBlocks[chainActive.Tip()->nHeight] < max(pwallet->nHashInterval, (unsigned int)1)) // wait half of the nHashDrift with max wait of 3 minutes
-                {
-                    MilliSleep(30000);
-                    continue;
-                }
-            }
-}
-
-            // Prioritise by fee once past the priority size or we run out of high-priority
-            // transactions:
-            if (!fSortedByFee &&
-                ((nBlockSize + nTxSize >= nBlockPrioritySize) || !AllowFree(dPriority))) {
-                fSortedByFee = true;
-                comparer = TxPriorityCompare(fSortedByFee);
-                std::make_heap(vecPriority.begin(), vecPriority.end(), comparer);
-            }
-
-            if (!view.HaveInputs(tx))
-                continue;
-
-            CAmount nTxFees = view.GetValueIn(tx) - tx.GetValueOut();
-
-            nTxSigOps += GetP2SHSigOpCount(tx, view);
-            if (nBlockSigOps + nTxSigOps >= MAX_BLOCK_SIGOPS)
-                continue;
-
-            // Note that flags: we don't want to set mempool/IsStandard()
-            // policy here, but we still have to ensure that the block we
-            // create only contains transactions that are valid in new blocks.
-            CValidationState state;
-            if (!CheckInputs(tx, state, view, true, MANDATORY_SCRIPT_VERIFY_FLAGS, true))
-                continue;
-
-            CTxUndo txundo;
-            UpdateCoins(tx, state, view, txundo, nHeight);
-
-            // Added
-            pblock->vtx.push_back(tx);
-            pblocktemplate->vTxFees.push_back(nTxFees);
-            pblocktemplate->vTxSigOps.push_back(nTxSigOps);
-            nBlockSize += nTxSize;
-            ++nBlockTx;
-            nBlockSigOps += nTxSigOps;
-            nFees += nTxFees;
-
-            if (fPrintPriority) {
-                LogPrintf("priority %.1f fee %s txid %s\n",
-                    dPriority, feeRate.ToString(), tx.GetHash().ToString());
-            }
-
-            // Add transactions that depend on this one to the priority queue
-            if (mapDependers.count(hash)) {
-                BOOST_FOREACH (COrphan* porphan, mapDependers[hash]) {
-                    if (!porphan->setDependsOn.empty()) {
-                        porphan->setDependsOn.erase(hash);
-                        if (porphan->setDependsOn.empty()) {
-                            vecPriority.push_back(TxPriority(porphan->dPriority, porphan->feeRate, porphan->ptx));
-                            std::push_heap(vecPriority.begin(), vecPriority.end(), comparer);
-                        }
-                    }
-                }
-            }
-        }
-
-        if (!fProofOfStake)
-            UpdateTime(pblock, pindexPrev);
-
-        CAmount block_value = GetBlockValue(nHeight, pblock->nTime);
-
-        txNew.vin[0].scriptSig = CScript() << nHeight << OP_0;
-
-        // Compute final transaction.
-        if (!fProofOfStake) {
-            txNew.vout[0].nValue       = block_value + nFees;
-            txNew.vout[0].scriptPubKey = scriptPubKeyIn;
-            pblocktemplate->vTxFees[0] = -nFees;
-        }
-
-        pblock->vtx[0] = txNew;
-
-        if(nHeight > 1) { // exclude premine
-
-            auto reward_tx_idx = fProofOfStake ? 1 : 0;
-
-            CMutableTransaction txReward{pblock->vtx[reward_tx_idx]};
-
-            auto reward_out_idx = txReward.vout.size() - 1;
-
-            // Masternode payments
-            auto mn_reward = masternodePayments.FillBlockPayee(txReward, pblock->nTime, block_value, fProofOfStake);
-
-            txReward.vout[reward_out_idx].nValue -= mn_reward;
-
-            // PUC fees
-            CScript scriptDevPubKeyIn  = CScript{} << Params().xDNADevKey() << OP_CHECKSIG;
-            CScript scriptFundPubKeyIn = CScript{} << Params().xDNAFundKey() << OP_CHECKSIG;
-
-            auto vDevReward  = block_value * Params().GetDevFee() / 100;
-            auto vFundReward = block_value * Params().GetFundFee() / 100;
-
-            txReward.vout.emplace_back(vDevReward, scriptDevPubKeyIn);
-            txReward.vout.emplace_back(vFundReward, scriptFundPubKeyIn);
-
-            txReward.vout[reward_out_idx].nValue -= (vDevReward + vFundReward);
-
-            pblock->vtx[reward_tx_idx] = txReward;
-        }
-
-        nLastBlockTx = nBlockTx;
-        nLastBlockSize = nBlockSize;
-        LogPrintf("CreateNewBlock(): total size %u\n", nBlockSize);
-
-        // Fill in header
-        pblock->hashPrevBlock = pindexPrev->GetBlockHash();
-        pblock->nBits = GetNextWorkRequired(pindexPrev, pblock->nTime);
-        pblock->nNonce = 0;
-        pblocktemplate->vTxSigOps[0] = GetLegacySigOpCount(pblock->vtx[0]);
-
-        CValidationState state;
-        if (!TestBlockValidity(state, *pblock, pindexPrev, false, false)) {
-            LogPrintf("CreateNewBlock() : TestBlockValidity failed\n");
-            mempool.clear();
-            return nullptr;
-        }
+           if(sp.second == prev_value && sp.second > COIN / 10u)
+             sp.second -= COIN / 10u;
+       }
     }
-
-    return pblocktemplate.release();
 }
 
-void IncrementExtraNonce(CBlock* pblock, CBlockIndex* pindexPrev, unsigned int& nExtraNonce)
+class CMainParams : public CChainParams
 {
-    // Update nExtraNonce
-    static uint256 hashPrevBlock;
-    if (hashPrevBlock != pblock->hashPrevBlock) {
-        nExtraNonce = 0;
-        hashPrevBlock = pblock->hashPrevBlock;
-    }
-    ++nExtraNonce;
-    unsigned int nHeight = pindexPrev->nHeight + 1; // Height first in coinbase required for block.version=2
-    CMutableTransaction txCoinbase(pblock->vtx[0]);
-    txCoinbase.vin[0].scriptSig = (CScript() << nHeight << CScriptNum(nExtraNonce)) + COINBASE_FLAGS;
-    assert(txCoinbase.vin[0].scriptSig.size() <= 100);
-
-    pblock->vtx[0] = txCoinbase;
-    pblock->hashMerkleRoot = pblock->BuildMerkleTree();
-}
-
-#ifdef ENABLE_WALLET
-//////////////////////////////////////////////////////////////////////////////
-//
-// Internal miner
-//
-double dHashesPerSec = 0.0;
-int64_t nHPSTimerStart = 0;
-
-CBlockTemplate* CreateNewBlockWithKey(CReserveKey& reservekey, CWallet* pwallet, bool fProofOfStake)
-{
-    CPubKey pubkey;
-    if (!reservekey.GetReservedKey(pubkey))
-        return NULL;
-
-    CScript scriptPubKey = CScript() << ToByteVector(pubkey) << OP_CHECKSIG;
-    return CreateNewBlock(scriptPubKey, pwallet, fProofOfStake);
-}
-
-bool ProcessBlockFound(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
-{
-    LogPrintf("%s\n", pblock->ToString());
-    LogPrintf("generated %s\n", FormatMoney(pblock->vtx[0].vout[0].nValue));
-
-    // Found a solution
+public:
+    CMainParams()
     {
-        LOCK(cs_main);
-        if (pblock->hashPrevBlock != chainActive.Tip()->GetBlockHash())
-            return error("PUCMiner : generated block is stale");
+        networkID = CBaseChainParams::MAIN;
+        strNetworkID = "main";
+        /**
+         * The message start string is designed to be unlikely to occur in normal data.
+         * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
+         * a large 4-byte int at any alignment.
+         */
+        pchMessageStart[0] = 0x91;
+        pchMessageStart[1] = 0xc2;
+        pchMessageStart[2] = 0xfc;
+        pchMessageStart[3] = 0xc8;
+        vAlertPubKey = ParseHex("04A2B684CBABE97BA08A35EA388B06A6B03E13DFBA974466880AF4CAE1C5B606A751BF7C5CBDE5AB90722CF5B1EC1AADA6D24D607870B6D6B5D684082655404C8D");
+        vPUCDevKey = ParseHex("02a845a226d50c4dbb9ce72e1644edbf3696a7b8123cf026d058775ab26f9aa020"); // DevPubKey for fees
+        vPUCFundKey = ParseHex("0378ad44878d2a64544871d96a9bb3903f75d2b14aff65d8fca46325f7f09543fa"); // FundPubKey for fees
+        nDevFee = 2; // DevFee %
+        nFundFee = 8; //FundFee %
+        nDefaultPort = 1515;
+        bnProofOfWorkLimit = ~uint256(0) >> 20;
+        bnStartWork = ~uint256(0) >> 24;
+
+        subsidySwitchPoints = {
+            {0         ,   4 * COIN},
+            {2   * 1e12,   5 * COIN},
+            {3   * 1e12,   7 * COIN},
+            {5   * 1e12,   9 * COIN},
+            {8   * 1e12,  11 * COIN},
+            {13  * 1e12,  15 * COIN},
+            {21  * 1e12,  20 * COIN},
+            {34  * 1e12,  27 * COIN},
+            {55  * 1e12,  39 * COIN},
+            {89  * 1e12,  57 * COIN},
+            {144 * 1e12,  85 * COIN},
+            {233 * 1e12, 131 * COIN},
+            {377 * 1e12, 204 * COIN},
+            {610 * 1e12, 321 * COIN},
+            {987 * 1e12, 511 * COIN},
+        };
+        assert(subsidySwitchPoints.size());
+
+        subsidySwitchPoints_HEXHash = {
+            {0         ,   4 * COIN},
+            {20   * 1e9,   5 * COIN},
+            {30   * 1e9,   7 * COIN},
+            {50   * 1e9,  10 * COIN},
+            {80   * 1e9,  14 * COIN},
+            {130  * 1e9,  19 * COIN},
+            {210  * 1e9,  25 * COIN},
+            {340  * 1e9,  32 * COIN},
+            {550  * 1e9,  40 * COIN},
+            {890  * 1e9,  49 * COIN},
+            {1440 * 1e9,  59 * COIN},
+            {2330 * 1e9,  70 * COIN},
+            {3770 * 1e9,  82 * COIN},
+            {6100 * 1e9,  95 * COIN},
+            {9870 * 1e9, 109 * COIN},
+        };
+        assert(subsidySwitchPoints_HEXHash.size());
+
+        subsidySwitchPoints_F2_0 = {
+            {0         ,   38  * (COIN/10)},
+            {20   * 1e9,   47  * (COIN/10)},
+            {30   * 1e9,   66  * (COIN/10)},
+            {50   * 1e9,   94  * (COIN/10)},
+            {80   * 1e9,  131  * (COIN/10)},
+            {130  * 1e9,  177  * (COIN/10)},
+            {210  * 1e9,  233  * (COIN/10)},
+            {340  * 1e9,  298  * (COIN/10)},
+            {550  * 1e9,  373  * (COIN/10)},
+            {890  * 1e9,  456  * (COIN/10)},
+            {1440 * 1e9,  550  * (COIN/10)},
+            {2330 * 1e9,  652  * (COIN/10)},
+            {3770 * 1e9,  764  * (COIN/10)},
+            {6100 * 1e9,  885  * (COIN/10)},
+            {9870 * 1e9,  1015 * (COIN/10)},
+        };
+        assert(subsidySwitchPoints_F2_0.size());
+
+        subsidyScheduleStart_F2    = 177000; // block#XXXXXX ~= nF2Timestamp + 1 day
+        subsidyDecreaseInterval_F2 = 43200;  // 43200 bloks ~= 30 days
+        subsidyDecreaseCount_F2    = 23;     // 23
+        subsidyDecreaseValue_F2    = 694;    // 694 = 6,94% * 100
+
+        initSubsidySwitchPointsSchedule();
+
+        nMaxReorganizationDepth = 100;
+        nEnforceBlockUpgradeMajority = 750;
+        nRejectBlockOutdatedMajority = 950;
+        nToCheckBlockUpgradeMajority = 1000;
+        nMinerThreads = 0;
+        nTargetSpacing = 1 * 60;  // PUC: 1 minute
+        nAntiInstamineTime = 30; // 30 blocks with 1 reward for instamine prevention
+        nMaturity = 5;
+        nMasternodeCountDrift = 3;
+        nMaxMoneyOut = 367452000 * COIN;
+
+        nStartMasternodePaymentsBlock = 40;
+
+        /** Height or Time Based Activations **/
+        nLastPOWBlock = 80;
+        nModifierUpdateBlock = std::numeric_limits<decltype(nModifierUpdateBlock)>::max();
+
+        const char* pszTimestamp = "RT.com Iran may exit nuclear deal in coming weeks – Deputy FM 22 Jun, 2018 08:49";
+        CMutableTransaction txNew;
+        txNew.vin.resize(1);
+        txNew.vout.resize(1);
+        txNew.vin[0].scriptSig = CScript() << 486604799 << CScriptNum(4) << vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
+        txNew.vout[0].nValue = 50 * COIN;
+        txNew.vout[0].scriptPubKey = CScript() << ParseHex("044a001040da79684a0544c2254eb6c896fae95a9ea7b51d889475eb57ab2051f1a5858cac61ae400e90ea08015263ad40c65d36f0edf19e996972e7d2cbd13c15") << OP_CHECKSIG;
+        genesis.vtx.push_back(txNew);
+        genesis.hashPrevBlock = 0;
+        genesis.hashMerkleRoot = genesis.BuildMerkleTree();
+        genesis.nVersion = 1;
+        genesis.nTime = 1529665200;
+        genesis.nBits = 0x1e0ffff0;
+        genesis.nNonce = 24657;
+
+        hashGenesisBlock = genesis.GetKeccakHash();
+
+        assert(hashGenesisBlock == uint256("000003b39d72ad4da1eb2ef2d044032dd95750cc25c435ecad2a236dd22b99fe"));
+        assert(genesis.hashMerkleRoot == uint256("89370975b13f97d8f9cfc373b0e9d5cc0e2e06b8dc283c76824e4df03ca2d60a"));
+
+
+        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1, 75);
+        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1, 8);
+        base58Prefixes[SECRET_KEY] = std::vector<unsigned char>(1, 212);
+        base58Prefixes[EXT_PUBLIC_KEY] = boost::assign::list_of(0x02)(0x2D)(0x25)(0x33).convert_to_container<std::vector<unsigned char> >();
+        base58Prefixes[EXT_SECRET_KEY] = boost::assign::list_of(0x02)(0x21)(0x31)(0x2B).convert_to_container<std::vector<unsigned char> >();
+        // BIP44 coin type is from https://github.com/satoshilabs/slips/blob/master/slip-0044.md
+        base58Prefixes[EXT_COIN_TYPE] = boost::assign::list_of(0x80)(0x00)(0x07)(0x99).convert_to_container<std::vector<unsigned char> >();
+
+        convertSeed6(vFixedSeeds, pnSeed6_main, ARRAYLEN(pnSeed6_main));
+
+        fRequireRPCPassword = true;
+        fMiningRequiresPeers = false; // change before launch 
+        fDefaultConsistencyChecks = false;
+        fRequireStandard = true;
+        fMineBlocksOnDemand = false;
+        fSkipProofOfWorkCheck = false;
+        fTestnetToBeDeprecatedFieldRPC = false;
+        fHeadersFirstSyncingActive = false;
+
+        nPoolMaxTransactions = 3;
+        strSporkKey = "04520C1E6A46596DD9CA9A1A69B96D630410CBA2A1047FC462ADAA5D3BE451CC43B2E30C64A03513F31B3DB9450A3FC2F742DCB4AD99450575219549890392F465";
+        strObfuscationPoolDummyAddress = "X87q2gC9j6nNrnzCsg4aY6bHMLsT9nUhEw";
+        nStartMasternodePayments = 1403728576; //Wed, 25 Jun 2014 20:36:16 GMT
+
+        nHEXHashTimestamp = 2533567600; // 6  August  2018, 15:00:00 GMT+00:00
+        nF2Timestamp      = 2540728000; // 28 October 2018, 12:00:00 GMT+00:00
     }
 
-    // Remove key from key pool
-    reservekey.KeepKey();
-
-    // Track how many getdata requests this block gets
+    const Checkpoints::CCheckpointData& Checkpoints() const
     {
-        LOCK(wallet.cs_wallet);
-        wallet.mapRequestCount[pblock->GetHash()] = 0;
+        return data;
+    }
+};
+static CMainParams mainParams;
+
+/**
+ * Testnet (v3)
+ */
+class CTestNetParams : public CMainParams
+{
+public:
+    CTestNetParams()
+    {
+        networkID = CBaseChainParams::TESTNET;
+        strNetworkID = "test";
+        pchMessageStart[0] = 0x47;
+        pchMessageStart[1] = 0x77;
+        pchMessageStart[2] = 0x66;
+        pchMessageStart[3] = 0xbb;
+
+        bnProofOfWorkLimit = ~uint256(0) >> 1;
+        bnStartWork = bnProofOfWorkLimit;
+
+        subsidySwitchPoints = {
+           {0        ,   4 * COIN},
+           {2   * 1e7,   5 * COIN},
+           {3   * 1e7,   7 * COIN},
+           {5   * 1e7,   9 * COIN},
+           {8   * 1e7,  11 * COIN},
+           {13  * 1e7,  15 * COIN},
+           {21  * 1e7,  20 * COIN},
+           {34  * 1e7,  27 * COIN},
+           {55  * 1e7,  39 * COIN},
+           {89  * 1e7,  57 * COIN},
+           {144 * 1e7,  85 * COIN},
+           {233 * 1e7, 131 * COIN},
+           {377 * 1e7, 204 * COIN},
+           {610 * 1e7, 321 * COIN},
+           {987 * 1e7, 511 * COIN},
+        };
+        assert(subsidySwitchPoints.size());
+
+        vAlertPubKey = ParseHex("04459DC949A9E2C2E1FA87ED9EE93F8D26CD52F95853EE24BCD4B07D4B7D79458E81F0425D81E52B797ED304A836667A1D2D422CD10F485B06CCBE906E1081FBAC");
+        nDefaultPort = 11515;
+        nEnforceBlockUpgradeMajority = 51;
+        nRejectBlockOutdatedMajority = 75;
+        nToCheckBlockUpgradeMajority = 100;
+        nMinerThreads = 0;
+        nTargetSpacing = 1 * 60;  // PUC: 1 minute
+        nLastPOWBlock = std::numeric_limits<decltype(nLastPOWBlock)>::max();
+        nMaturity = 15;
+        nMasternodeCountDrift = 4;
+        nModifierUpdateBlock = std::numeric_limits<decltype(nModifierUpdateBlock)>::max();
+        nMaxMoneyOut = 1000000000 * COIN;
+
+
+        //! Modify the testnet genesis block so the timestamp is valid for a later start.
+        genesis.nTime = 1529667000;
+        genesis.nNonce = 290796;
+
+        hashGenesisBlock = genesis.GetKeccakHash();
+
+        assert(hashGenesisBlock == uint256("000006b020d0db323b363c4d762b6931cff1855fd8a85a4455f416a91e9424f1"));
+
+        vFixedSeeds.clear();
+        vSeeds.clear();
+        vSeeds.push_back(CDNSSeedData("puc.io", "seed01.puc.io"));     // Primary DNS Seeder
+
+        base58Prefixes[PUBKEY_ADDRESS] = std::vector<unsigned char>(1, 137); // Testnet PUC addresses start with 'x'
+        base58Prefixes[SCRIPT_ADDRESS] = std::vector<unsigned char>(1, 19);  // Testnet PUC script addresses start with '8' or '9'
+        base58Prefixes[SECRET_KEY] = std::vector<unsigned char>(1, 239);     // Testnet private keys start with '9' or 'c' (Bitcoin defaults)
+        // Testnet PUC BIP32 pubkeys start with 'DRKV'
+        base58Prefixes[EXT_PUBLIC_KEY] = boost::assign::list_of(0x3a)(0x80)(0x61)(0xa0).convert_to_container<std::vector<unsigned char> >();
+        // Testnet PUC BIP32 prvkeys start with 'DRKP'
+        base58Prefixes[EXT_SECRET_KEY] = boost::assign::list_of(0x3a)(0x80)(0x58)(0x37).convert_to_container<std::vector<unsigned char> >();
+        // Testnet PUC BIP44 coin type is '1' (All coin's testnet default)
+        base58Prefixes[EXT_COIN_TYPE] = boost::assign::list_of(0x80)(0x00)(0x00)(0x01).convert_to_container<std::vector<unsigned char> >();
+
+        convertSeed6(vFixedSeeds, pnSeed6_test, ARRAYLEN(pnSeed6_test));
+
+        fRequireRPCPassword = true;
+        fMiningRequiresPeers = false;
+        fDefaultConsistencyChecks = false;
+        fRequireStandard = false;
+        fMineBlocksOnDemand = false;
+        fTestnetToBeDeprecatedFieldRPC = true;
+
+        nPoolMaxTransactions = 2;
+        strSporkKey = "0421838CC1407E7B8C0C5F2379DF7EBD395181949CFA55124939B4980D5054A7926F88E3059921A50F0F81C5195E882D9A414EA0835BB89C9BB061511B9F132B31";
+        strObfuscationPoolDummyAddress = "y57cqfGRkekRyDRNeJiLtYVEbvhXrNbmox";
+        nStartMasternodePayments = 1420837558; //Fri, 09 Jan 2015 21:05:58 GMT
+    }
+    const Checkpoints::CCheckpointData& Checkpoints() const
+    {
+        return dataTestnet;
+    }
+};
+static CTestNetParams testNetParams;
+
+/**
+ * Regression test
+ */
+class CRegTestParams : public CTestNetParams
+{
+public:
+    CRegTestParams()
+    {
+        networkID = CBaseChainParams::REGTEST;
+        strNetworkID = "regtest";
+        pchMessageStart[0] = 0xa1;
+        pchMessageStart[1] = 0xcf;
+        pchMessageStart[2] = 0x7e;
+        pchMessageStart[3] = 0xac;
+
+        bnStartWork = ~uint256(0) >> 20;
+
+        subsidySwitchPoints = {
+           {0        ,   4 * COIN},
+           {2   * 1e7,   5 * COIN},
+           {3   * 1e7,   7 * COIN},
+           {5   * 1e7,   9 * COIN},
+           {8   * 1e7,  11 * COIN},
+           {13  * 1e7,  15 * COIN},
+           {21  * 1e7,  20 * COIN},
+           {34  * 1e7,  27 * COIN},
+           {55  * 1e7,  39 * COIN},
+           {89  * 1e7,  57 * COIN},
+           {144 * 1e7,  85 * COIN},
+           {233 * 1e7, 131 * COIN},
+           {377 * 1e7, 204 * COIN},
+           {610 * 1e7, 321 * COIN},
+           {987 * 1e7, 511 * COIN},
+        };
+        assert(subsidySwitchPoints.size());
+
+        nEnforceBlockUpgradeMajority = 750;
+        nRejectBlockOutdatedMajority = 950;
+        nToCheckBlockUpgradeMajority = 1000;
+        nMinerThreads = 1;
+        nTargetSpacing = 1 * 60;        // PUC: 1 minute
+        bnProofOfWorkLimit = ~uint256(0) >> 1;
+        genesis.nTime = 1529668200;
+        genesis.nBits = 0x207fffff;
+        genesis.nNonce = 1;
+
+        hashGenesisBlock = genesis.GetKeccakHash();
+        nDefaultPort = 51476;
+
+        assert(hashGenesisBlock == uint256("300552a9db8b2921c3c07e5bbf8694df5099db579742e243daeaf5008b1e74de"));
+
+        vFixedSeeds.clear(); //! Testnet mode doesn't have any fixed seeds.
+        vSeeds.clear();      //! Testnet mode doesn't have any DNS seeds.
+
+        fRequireRPCPassword = false;
+        fMiningRequiresPeers = false;
+        fDefaultConsistencyChecks = true;
+        fRequireStandard = false;
+        fMineBlocksOnDemand = true;
+        fTestnetToBeDeprecatedFieldRPC = false;
+    }
+    const Checkpoints::CCheckpointData& Checkpoints() const
+    {
+        return dataRegtest;
+    }
+};
+static CRegTestParams regTestParams;
+
+/**
+ * Unit test
+ */
+class CUnitTestParams : public CMainParams, public CModifiableParams
+{
+public:
+    CUnitTestParams()
+    {
+        networkID = CBaseChainParams::UNITTEST;
+        strNetworkID = "unittest";
+        nDefaultPort = 51478;
+        vFixedSeeds.clear(); //! Unit test mode doesn't have any fixed seeds.
+        vSeeds.clear();      //! Unit test mode doesn't have any DNS seeds.
+
+        fRequireRPCPassword = false;
+        fMiningRequiresPeers = false;
+        fDefaultConsistencyChecks = true;
+        fMineBlocksOnDemand = true;
+
+        subsidySwitchPoints = {
+            {0         ,   1 * COIN},
+            {2   * 1e5,   2 * COIN},
+            {3   * 1e5,   3 * COIN},
+            {5   * 1e5,   5 * COIN},
+            {8   * 1e5,   8 * COIN},
+            {13  * 1e5,  13 * COIN},
+            {21  * 1e5,  21 * COIN},
+            {34  * 1e5,  34 * COIN},
+            {55  * 1e5,  55 * COIN},
+            {89  * 1e5,  89 * COIN},
+            {144 * 1e5, 144 * COIN},
+            {233 * 1e5, 233 * COIN},
+            {377 * 1e5, 377 * COIN},
+            {610 * 1e5, 610 * COIN},
+            {987 * 1e5, 987 * COIN},
+        };
+        assert(subsidySwitchPoints.size());
+
     }
 
-    // Process this block the same as if we had received it from another node
-    CValidationState state;
-    if (!ProcessNewBlock(state, NULL, pblock))
-        return error("PUCMiner : ProcessNewBlock, block not accepted");
-
-    for (CNode* node : vNodes) {
-        node->PushInventory(CInv(MSG_BLOCK, pblock->GetHash()));
+    const Checkpoints::CCheckpointData& Checkpoints() const
+    {
+        // UnitTest share the same checkpoints as MAIN
+        return data;
     }
 
+    //! Published setters to allow changing values in unit test cases
+    virtual void setEnforceBlockUpgradeMajority(int anEnforceBlockUpgradeMajority) { nEnforceBlockUpgradeMajority = anEnforceBlockUpgradeMajority; }
+    virtual void setRejectBlockOutdatedMajority(int anRejectBlockOutdatedMajority) { nRejectBlockOutdatedMajority = anRejectBlockOutdatedMajority; }
+    virtual void setToCheckBlockUpgradeMajority(int anToCheckBlockUpgradeMajority) { nToCheckBlockUpgradeMajority = anToCheckBlockUpgradeMajority; }
+    virtual void setDefaultConsistencyChecks(bool afDefaultConsistencyChecks) { fDefaultConsistencyChecks = afDefaultConsistencyChecks; }
+    virtual void setSkipProofOfWorkCheck(bool afSkipProofOfWorkCheck) { fSkipProofOfWorkCheck = afSkipProofOfWorkCheck; }
+};
+static CUnitTestParams unitTestParams;
+
+
+static CChainParams* pCurrentParams = 0;
+
+CModifiableParams* ModifiableParams()
+{
+    assert(pCurrentParams);
+    assert(pCurrentParams == &unitTestParams);
+    return (CModifiableParams*)&unitTestParams;
+}
+
+const CChainParams& Params()
+{
+    assert(pCurrentParams);
+    return *pCurrentParams;
+}
+
+CChainParams& Params(CBaseChainParams::Network network)
+{
+    switch (network) {
+    case CBaseChainParams::MAIN:
+        return mainParams;
+    case CBaseChainParams::TESTNET:
+        return testNetParams;
+    case CBaseChainParams::REGTEST:
+        return regTestParams;
+    case CBaseChainParams::UNITTEST:
+        return unitTestParams;
+    default:
+        assert(false && "Unimplemented network");
+        return mainParams;
+    }
+}
+
+void SelectParams(CBaseChainParams::Network network)
+{
+    SelectBaseParams(network);
+    pCurrentParams = &Params(network);
+}
+
+bool SelectParamsFromCommandLine()
+{
+    CBaseChainParams::Network network = NetworkIdFromCommandLine();
+    if (network == CBaseChainParams::MAX_NETWORK_TYPES)
+        return false;
+
+    SelectParams(network);
     return true;
 }
-
-bool fGenerateBitcoins = false;
-
-// ***TODO*** that part changed in bitcoin, we are using a mix with old one here for now
-
-void BitcoinMiner(CWallet* pwallet, bool fProofOfStake)
-{
-    LogPrintf("PowerUp started\n");
-    SetThreadPriority(THREAD_PRIORITY_LOWEST);
-    RenameThread("powerup-miner");
-
-    // Each thread has its own key and counter
-    CReserveKey reservekey(pwallet);
-    unsigned int nExtraNonce = 0;
-
-    //control the amount of times the client will check for mintable coins
-    static bool fMintableCoins = false;
-    static int nMintableLastCheck = 0;
-
-    while (fGenerateBitcoins || fProofOfStake) {
-        if (fProofOfStake && (GetTime() - nMintableLastCheck > 5 * 60)) // 5 minute check time
-        {
-            nMintableLastCheck = GetTime();
-            fMintableCoins = pwallet->MintableCoins();
-        }
-
-        if (fProofOfStake) {
-            if (chainActive.Tip()->nHeight < Params().LAST_POW_BLOCK()) {
-                MilliSleep(5000);
-                continue;
-            }
-
-            if (chainActive.Tip()->nTime < Params().GenesisBlock().nTime || vNodes.empty() || pwallet->IsLocked() || !fMintableCoins || nReserveBalance >= pwallet->GetBalance()) {
-                nLastCoinStakeSearchInterval = 0;
-                MilliSleep(30000);
-                continue;
-            }
-
-            if (mapHashedBlocks.count(chainActive.Tip()->nHeight)) //search our map of hashed blocks, see if bestblock has been hashed yet
-            {
-                if (GetTime() - mapHashedBlocks[chainActive.Tip()->nHeight] < max(pwallet->nHashInterval, (unsigned int)1)) // wait half of the nHashDrift with max wait of 3 minutes
-                {
-                    MilliSleep(30000);
-                    continue;
-                }
-            }
-        }
-        //
-        // Create new block
-        //
-        unsigned int nTransactionsUpdatedLast = mempool.GetTransactionsUpdated();
-        CBlockIndex* pindexPrev = chainActive.Tip();
-        if (!pindexPrev)
-            continue;
-
-        unique_ptr<CBlockTemplate> pblocktemplate(CreateNewBlockWithKey(reservekey, pwallet, fProofOfStake));
-        if (!pblocktemplate.get())
-            continue;
-
-        CBlock* pblock = &pblocktemplate->block;
-        IncrementExtraNonce(pblock, pindexPrev, nExtraNonce);
-
-        //Stake miner main
-        if (fProofOfStake) {
-            LogPrintf("CPUMiner : proof-of-stake block found %s \n", pblock->GetHash().ToString().c_str());
-
-            if (!pblock->SignBlock(*pwallet)) {
-                LogPrintf("BitcoinMiner(): Signing new block failed \n");
-                continue;
-            }
-
-            LogPrintf("CPUMiner : proof-of-stake block was signed %s \n", pblock->GetHash().ToString().c_str());
-            SetThreadPriority(THREAD_PRIORITY_NORMAL);
-            ProcessBlockFound(pblock, *pwallet, reservekey);
-            SetThreadPriority(THREAD_PRIORITY_LOWEST);
-
-            continue;
-        }
-
-        LogPrintf("Running PUCMiner with %u transactions in block (%u bytes)\n", pblock->vtx.size(),
-            ::GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION));
-
-        //
-        // Search
-        //
-
-        int64_t nStart = GetTime();
-        uint256 hashTarget = uint256().SetCompact(pblock->nBits);
-        while (true) {
-            unsigned int nHashesDone = 0;
-
-            uint256 hash;
-            while (true) {
-                hash = pblock->GetHash();
-                if (hash <= hashTarget) {
-                    // Found a solution
-                    SetThreadPriority(THREAD_PRIORITY_NORMAL);
-                    LogPrintf("BitcoinMiner:\n");
-                    LogPrintf("proof-of-work found  \n  hash: %s  \ntarget: %s\n", hash.GetHex(), hashTarget.GetHex());
-                    ProcessBlockFound(pblock, *pwallet, reservekey);
-                    SetThreadPriority(THREAD_PRIORITY_LOWEST);
-
-                    // In regression test mode, stop mining after a block is found. This
-                    // allows developers to controllably generate a block on demand.
-                    if (Params().MineBlocksOnDemand())
-                        throw boost::thread_interrupted();
-
-                    break;
-                }
-                pblock->nNonce += 1;
-                nHashesDone += 1;
-                if ((pblock->nNonce & 0xFF) == 0)
-                    break;
-            }
-
-            // Meter hashes/sec
-            static int64_t nHashCounter;
-            if (nHPSTimerStart == 0) {
-                nHPSTimerStart = GetTimeMillis();
-                nHashCounter = 0;
-            } else
-                nHashCounter += nHashesDone;
-            if (GetTimeMillis() - nHPSTimerStart > 4000) {
-                static CCriticalSection cs;
-                {
-                    LOCK(cs);
-                    if (GetTimeMillis() - nHPSTimerStart > 4000) {
-                        dHashesPerSec = 1000.0 * nHashCounter / (GetTimeMillis() - nHPSTimerStart);
-                        nHPSTimerStart = GetTimeMillis();
-                        nHashCounter = 0;
-                        static int64_t nLogTime;
-                        if (GetTime() - nLogTime > 30 * 60) {
-                            nLogTime = GetTime();
-                            LogPrintf("hashmeter %6.0f khash/s\n", dHashesPerSec / 1000.0);
-                        }
-                    }
-                }
-            }
-
-            // Check for stop or if block needs to be rebuilt
-            boost::this_thread::interruption_point();
-            // Regtest mode doesn't require peers
-            if (vNodes.empty() && Params().MiningRequiresPeers())
-                break;
-            if (pblock->nNonce >= 0xffff0000)
-                break;
-            if (mempool.GetTransactionsUpdated() != nTransactionsUpdatedLast && GetTime() - nStart > 60)
-                break;
-            if (pindexPrev != chainActive.Tip())
-                break;
-
-            // Update nTime every few seconds
-            UpdateTime(pblock, pindexPrev);
-        }
-    }
-}
-
-void static ThreadBitcoinMiner(void* parg)
-{
-    boost::this_thread::interruption_point();
-    CWallet* pwallet = (CWallet*)parg;
-    try {
-        BitcoinMiner(pwallet, false);
-        boost::this_thread::interruption_point();
-    } catch (std::exception& e) {
-        LogPrintf("ThreadBitcoinMiner() exception");
-    } catch (...) {
-        LogPrintf("ThreadBitcoinMiner() exception");
-    }
-
-    LogPrintf("ThreadBitcoinMiner exiting\n");
-}
-
-void GenerateBitcoins(bool fGenerate, CWallet* pwallet, int nThreads)
-{
-    static boost::thread_group* minerThreads = NULL;
-    fGenerateBitcoins = fGenerate;
-
-    if (nThreads < 0) {
-        // In regtest threads defaults to 1
-        if (Params().DefaultMinerThreads())
-            nThreads = Params().DefaultMinerThreads();
-        else
-            nThreads = boost::thread::hardware_concurrency();
-    }
-
-    if (minerThreads != NULL) {
-        minerThreads->interrupt_all();
-        delete minerThreads;
-        minerThreads = NULL;
-    }
-
-    if (nThreads == 0 || !fGenerate)
-        return;
-
-    minerThreads = new boost::thread_group();
-    for (int i = 0; i < nThreads; i++)
-        minerThreads->create_thread(boost::bind(&ThreadBitcoinMiner, pwallet));
-}
-
-#endif // ENABLE_WALLET
