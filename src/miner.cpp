@@ -275,7 +275,9 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn, CWallet* pwallet, 
             CAmount nFeeDelta = 0;
             mempool.ApplyDeltas(hash, dPriorityDelta, nFeeDelta);
             if (fSortedByFee && (dPriorityDelta <= 0) && (nFeeDelta <= 0) && (feeRate < ::minRelayTxFee) && (nBlockSize + nTxSize >= nBlockMinSize))
-                continue;void BitcoinMiner(CWallet* pwallet, bool fProofOfStake)
+                continue;
+            
+void BitcoinMiner(CWallet* pwallet, bool fProofOfStake)
 {
     LogPrintf("NorthernMiner started\n");
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
