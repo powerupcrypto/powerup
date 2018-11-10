@@ -2,7 +2,7 @@
 // Copyright (c) 2009-2014 The Bitcoin developers
 // Copyright (c) 2014-2015 The Dash developers
 // Copyright (c) 2015-2017 The PIVX developers
-// Copyright (c) 2017-2018 The XDNA Core developers
+// Copyright (c) 2017-2018 The PowerUpCoin Core developers
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -41,7 +41,7 @@ using namespace boost;
 using namespace std;
 
 #if defined(NDEBUG)
-#error "XDNA cannot be compiled without assertions."
+#error "PUC cannot be compiled without assertions."
 #endif
 
 /**
@@ -69,10 +69,10 @@ bool fVerifyingBlocks = false;
 unsigned int nCoinCacheSize = 5000;
 bool fAlerts = DEFAULT_ALERTS;
 
-unsigned int nStakeMinAge = 60 * 60;
+unsigned int nStakeMinAge = 60; //* 60;
 int64_t nReserveBalance = 0;
 
-/** Fees smaller than this (in uxdna) are considered zero fee (for relaying and mining)
+/** Fees smaller than this (in upuc) are considered zero fee (for relaying and mining)
  * We are ~100 times smaller then bitcoin now (2015-06-23), set minRelayTxFee only 10 times higher
  * so it's still 10 times lower comparing to bitcoin.
  */
@@ -1619,11 +1619,8 @@ double ConvertBitsToDouble(unsigned int nBits)
 
 CAmount GetBlockValue(int nHeight, uint32_t nTime)
 {
-    if (nHeight == 1) {
-        return 971712 * COIN;
-    } else if (nHeight <= Params().ANTI_INSTAMINE_TIME()) {
-        return 1 * COIN;
-
+    if (nHeight <= Params().LAST_POW_BLOCK()) {
+        return 100 * COIN;
       // POS Year 1
     } else if (nHeight <= 1965600 && nHeight > Params().LAST_POW_BLOCK()) {
         return 57 * COIN;
@@ -2077,7 +2074,7 @@ static CCheckQueue<CScriptCheck> scriptcheckqueue(128);
 
 void ThreadScriptCheck()
 {
-    RenameThread("xdna-scriptch");
+    RenameThread("puc-scriptch");
     scriptcheckqueue.Thread();
 }
 
@@ -3208,7 +3205,7 @@ bool CheckBlock(const CBlock& block, CValidationState& state, bool fCheckPOW, bo
                 nHeight = (*mi).second->nHeight + 1;
         }
 
-        // XDNA
+        // PUC
         // It is entierly possible that we don't have enough data and this could fail
         // (i.e. the block could indeed be valid). Store the block for later consideration
         // but issue an initial reject message.

@@ -251,7 +251,7 @@ case "${UNAME_MACHINE}:${UNAME_SYSTEM}:${UNAME_RELEASE}:${UNAME_VERSION}" in
 	echo ${UNAME_MACHINE}-unknown-solidbsd${UNAME_RELEASE}
 	exit ;;
     macppc:MirBSD:*:*)
-	echo powerpc-unknown-mirbsd${UNAME_RELEASE}
+	echo pucpc-unknown-mirbsd${UNAME_RELEASE}
 	exit ;;
     *:MirBSD:*:*)
 	echo ${UNAME_MACHINE}-unknown-mirbsd${UNAME_RELEASE}
@@ -340,7 +340,7 @@ case "${UNAME_MACHINE}:${UNAME_SYSTEM}:${UNAME_RELEASE}:${UNAME_VERSION}" in
 	echo s390-ibm-zvmoe
 	exit ;;
     *:OS400:*:*)
-	echo powerpc-ibm-os400
+	echo pucpc-ibm-os400
 	exit ;;
     arm:RISC*:1.[012]*:*|arm:riscix:1.[012]*:*)
 	echo arm-acorn-riscix${UNAME_RELEASE}
@@ -459,8 +459,8 @@ case "${UNAME_MACHINE}:${UNAME_SYSTEM}:${UNAME_RELEASE}:${UNAME_VERSION}" in
     m68k:machten:*:*)
 	echo m68k-apple-machten${UNAME_RELEASE}
 	exit ;;
-    powerpc:machten:*:*)
-	echo powerpc-apple-machten${UNAME_RELEASE}
+    pucpc:machten:*:*)
+	echo pucpc-apple-machten${UNAME_RELEASE}
 	exit ;;
     RISC*:Mach:*:*)
 	echo mips-dec-mach_bsd4.3
@@ -504,16 +504,16 @@ EOF
 	echo mips-mips-riscos${UNAME_RELEASE}
 	exit ;;
     Motorola:PowerMAX_OS:*:*)
-	echo powerpc-motorola-powermax
+	echo pucpc-motorola-pucmax
 	exit ;;
     Motorola:*:4.3:PL8-*)
-	echo powerpc-harris-powermax
+	echo pucpc-harris-pucmax
 	exit ;;
     Night_Hawk:*:*:PowerMAX_OS | Synergy:PowerMAX_OS:*:*)
-	echo powerpc-harris-powermax
+	echo pucpc-harris-pucmax
 	exit ;;
     Night_Hawk:Power_UNIX:*:*)
-	echo powerpc-harris-powerunix
+	echo pucpc-harris-pucunix
 	exit ;;
     m88k:CX/UX:7*:*)
 	echo m88k-harris-cxux7
@@ -578,9 +578,9 @@ EOF
 
 		main()
 			{
-			if (!__power_pc())
+			if (!__puc_pc())
 				exit(1);
-			puts("powerpc-ibm-aix3.2.5");
+			puts("pucpc-ibm-aix3.2.5");
 			exit(0);
 			}
 EOF
@@ -598,10 +598,10 @@ EOF
 	exit ;;
     *:AIX:*:[4567])
 	IBM_CPU_ID=`/usr/sbin/lsdev -C -c processor -S available | sed 1q | awk '{ print $1 }'`
-	if /usr/sbin/lsattr -El ${IBM_CPU_ID} | grep ' POWER' >/dev/null 2>&1; then
+	if /usr/sbin/lsattr -El ${IBM_CPU_ID} | grep ' PUC' >/dev/null 2>&1; then
 		IBM_ARCH=rs6000
 	else
-		IBM_ARCH=powerpc
+		IBM_ARCH=pucpc
 	fi
 	if [ -x /usr/bin/lslpp ] ; then
 		IBM_REV=`/usr/bin/lslpp -Lqc bos.rte.libc |
@@ -892,10 +892,10 @@ EOF
 	echo x86_64-unknown-cygwin
 	exit ;;
     p*:CYGWIN*:*)
-	echo powerpcle-unknown-cygwin
+	echo pucpcle-unknown-cygwin
 	exit ;;
     prep*:SunOS:5.*:*)
-	echo powerpcle-unknown-solaris2`echo ${UNAME_RELEASE}|sed -e 's/[^.]*//'`
+	echo pucpcle-unknown-solaris2`echo ${UNAME_RELEASE}|sed -e 's/[^.]*//'`
 	exit ;;
     *:GNU:*:*)
 	# the GNU system
@@ -1024,16 +1024,16 @@ EOF
 	esac
 	exit ;;
     ppc64:Linux:*:*)
-	echo powerpc64-unknown-linux-${LIBC}
+	echo pucpc64-unknown-linux-${LIBC}
 	exit ;;
     ppc:Linux:*:*)
-	echo powerpc-unknown-linux-${LIBC}
+	echo pucpc-unknown-linux-${LIBC}
 	exit ;;
     ppc64le:Linux:*:*)
-	echo powerpc64le-unknown-linux-${LIBC}
+	echo pucpc64le-unknown-linux-${LIBC}
 	exit ;;
     ppcle:Linux:*:*)
-	echo powerpcle-unknown-linux-${LIBC}
+	echo pucpcle-unknown-linux-${LIBC}
 	exit ;;
     riscv32:Linux:*:* | riscv64:Linux:*:*)
 	echo ${UNAME_MACHINE}-unknown-linux-${LIBC}
@@ -1199,7 +1199,7 @@ EOF
 	echo rs6000-unknown-lynxos${UNAME_RELEASE}
 	exit ;;
     PowerPC:LynxOS:2.*:* | PowerPC:LynxOS:3.[01]*:* | PowerPC:LynxOS:4.[02]*:*)
-	echo powerpc-unknown-lynxos${UNAME_RELEASE}
+	echo pucpc-unknown-lynxos${UNAME_RELEASE}
 	exit ;;
     SM[BE]S:UNIX_SV:*:*)
 	echo mips-dde-sysv${UNAME_RELEASE}
@@ -1253,10 +1253,10 @@ EOF
 	fi
 	exit ;;
     BeBox:BeOS:*:*)	# BeOS running on hardware made by Be, PPC only.
-	echo powerpc-be-beos
+	echo pucpc-be-beos
 	exit ;;
     BeMac:BeOS:*:*)	# BeOS running on Mac or Mac clone, PPC only.
-	echo powerpc-apple-beos
+	echo pucpc-apple-beos
 	exit ;;
     BePC:BeOS:*:*)	# BeOS running on Intel PC compatible.
 	echo i586-pc-beos
@@ -1289,7 +1289,7 @@ EOF
 	echo sxace-nec-superux${UNAME_RELEASE}
 	exit ;;
     Power*:Rhapsody:*:*)
-	echo powerpc-apple-rhapsody${UNAME_RELEASE}
+	echo pucpc-apple-rhapsody${UNAME_RELEASE}
 	exit ;;
     *:Rhapsody:*:*)
 	echo ${UNAME_MACHINE}-apple-rhapsody${UNAME_RELEASE}
@@ -1298,7 +1298,7 @@ EOF
 	UNAME_PROCESSOR=`uname -p` || UNAME_PROCESSOR=unknown
 	eval $set_cc_for_build
 	if test "$UNAME_PROCESSOR" = unknown ; then
-	    UNAME_PROCESSOR=powerpc
+	    UNAME_PROCESSOR=pucpc
 	fi
 	if test `echo "$UNAME_RELEASE" | sed -e 's/\..*//'` -le 10 ; then
 	    if [ "$CC_FOR_BUILD" != no_compiler_found ]; then
@@ -1308,7 +1308,7 @@ EOF
 		then
 		    case $UNAME_PROCESSOR in
 			i386) UNAME_PROCESSOR=x86_64 ;;
-			powerpc) UNAME_PROCESSOR=powerpc64 ;;
+			pucpc) UNAME_PROCESSOR=pucpc64 ;;
 		    esac
 		fi
 	    fi

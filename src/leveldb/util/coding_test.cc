@@ -26,16 +26,16 @@ TEST(Coding, Fixed32) {
 
 TEST(Coding, Fixed64) {
   std::string s;
-  for (int power = 0; power <= 63; power++) {
-    uint64_t v = static_cast<uint64_t>(1) << power;
+  for (int puc = 0; puc <= 63; puc++) {
+    uint64_t v = static_cast<uint64_t>(1) << puc;
     PutFixed64(&s, v - 1);
     PutFixed64(&s, v + 0);
     PutFixed64(&s, v + 1);
   }
 
   const char* p = s.data();
-  for (int power = 0; power <= 63; power++) {
-    uint64_t v = static_cast<uint64_t>(1) << power;
+  for (int puc = 0; puc <= 63; puc++) {
+    uint64_t v = static_cast<uint64_t>(1) << puc;
     uint64_t actual;
     actual = DecodeFixed64(p);
     ASSERT_EQ(v-1, actual);
@@ -104,11 +104,11 @@ TEST(Coding, Varint64) {
   values.push_back(~static_cast<uint64_t>(0));
   values.push_back(~static_cast<uint64_t>(0) - 1);
   for (uint32_t k = 0; k < 64; k++) {
-    // Test values near powers of two
-    const uint64_t power = 1ull << k;
-    values.push_back(power);
-    values.push_back(power-1);
-    values.push_back(power+1);
+    // Test values near pucs of two
+    const uint64_t puc = 1ull << k;
+    values.push_back(puc);
+    values.push_back(puc-1);
+    values.push_back(puc+1);
   }
 
   std::string s;

@@ -181,7 +181,7 @@
       <string>Asks</string>
      </property>
     </widget>
-    <widget class="QLabel" name="XDNASupply">
+    <widget class="QLabel" name="PUCSupply">
      <property name="geometry">
       <rect>
        <x>540</x>
@@ -197,7 +197,7 @@
       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
      </property>
     </widget>
-    <widget class="QLabel" name="xdnademand">
+    <widget class="QLabel" name="pucdemand">
      <property name="geometry">
       <rect>
        <x>160</x>
@@ -432,7 +432,7 @@
     <attribute name="title">
      <string>Buy</string>
     </attribute>
-    <widget class="QPushButton" name="BuyXDNA">
+    <widget class="QPushButton" name="BuyPUC">
      <property name="geometry">
       <rect>
        <x>30</x>
@@ -442,10 +442,10 @@
       </rect>
      </property>
      <property name="text">
-      <string>Buy XDNA</string>
+      <string>Buy PUC</string>
      </property>
      <property name="icon">
-      <iconset resource="../xdna.qrc">
+      <iconset resource="../puc.qrc">
        <normaloff>:/icons/bitcoin</normaloff>:/icons/bitcoin</iconset>
      </property>
     </widget>
@@ -512,7 +512,7 @@
       </rect>
      </property>
      <property name="text">
-      <string>XDNA</string>
+      <string>PUC</string>
      </property>
     </widget>
     <widget class="QLabel" name="label_5">
@@ -1704,10 +1704,10 @@
       </rect>
      </property>
      <property name="text">
-      <string>XDNA</string>
+      <string>PUC</string>
      </property>
     </widget>
-    <widget class="QLineEdit" name="UnitsInputXDNA">
+    <widget class="QLineEdit" name="UnitsInputPUC">
      <property name="geometry">
       <rect>
        <x>310</x>
@@ -1741,7 +1741,7 @@
       </font>
      </property>
     </widget>
-    <widget class="QPushButton" name="SellXDNABTN">
+    <widget class="QPushButton" name="SellPUCBTN">
      <property name="geometry">
       <rect>
        <x>30</x>
@@ -1751,10 +1751,10 @@
       </rect>
      </property>
      <property name="text">
-      <string>Sell XDNA</string>
+      <string>Sell PUC</string>
      </property>
      <property name="icon">
-      <iconset resource="../xdna">
+      <iconset resource="../puc">
        <normaloff>:/icons/bitcoin</normaloff>:/icons/bitcoin</iconset>
      </property>
     </widget>
@@ -1777,12 +1777,12 @@
          </font>
         </property>
         <property name="text">
-         <string>XDNA Available:</string>
+         <string>PUC Available:</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QLabel" name="XDNAAvailableLabel">
+       <widget class="QLabel" name="PUCAvailableLabel">
         <property name="palette">
          <palette>
           <active>
@@ -2213,7 +2213,7 @@
        </widget>
       </item>
       <item>
-       <widget class="QLabel" name="labelXDNA">
+       <widget class="QLabel" name="labelPUC">
         <property name="font">
          <font>
           <weight>75</weight>
@@ -2221,7 +2221,7 @@
          </font>
         </property>
         <property name="text">
-         <string>XDNA</string>
+         <string>PUC</string>
         </property>
        </widget>
       </item>
@@ -2733,7 +2733,7 @@
       <string>TextLabel</string>
      </property>
     </widget>
-    <widget class="QLabel" name="XDNABalanceLabel">
+    <widget class="QLabel" name="PUCBalanceLabel">
      <property name="geometry">
       <rect>
        <x>150</x>
@@ -2762,7 +2762,7 @@
       </font>
      </property>
      <property name="text">
-      <string>XDNA Balance:</string>
+      <string>PUC Balance:</string>
      </property>
     </widget>
     <widget class="QLabel" name="label_12">
@@ -2784,7 +2784,7 @@
       <string>BTC Balance:</string>
      </property>
     </widget>
-    <widget class="QLabel" name="XDNAAvailableLabel_2">
+    <widget class="QLabel" name="PUCAvailableLabel_2">
      <property name="geometry">
       <rect>
        <x>150</x>
@@ -2813,7 +2813,7 @@
       </font>
      </property>
      <property name="text">
-      <string>XDNA Available:</string>
+      <string>PUC Available:</string>
      </property>
     </widget>
     <widget class="QLabel" name="label_14">
@@ -2832,10 +2832,10 @@
       </font>
      </property>
      <property name="text">
-      <string>XDNA Pending:</string>
+      <string>PUC Pending:</string>
      </property>
     </widget>
-    <widget class="QLabel" name="XDNAPendingLabel">
+    <widget class="QLabel" name="PUCPendingLabel">
      <property name="geometry">
       <rect>
        <x>150</x>
@@ -2928,7 +2928,7 @@
       </font>
      </property>
      <property name="text">
-      <string>Bittrex XDNA Deposit Address:</string>
+      <string>Bittrex PUC Deposit Address:</string>
      </property>
     </widget>
     <widget class="QPushButton" name="GenDepositBTN">
@@ -2941,10 +2941,10 @@
       </rect>
      </property>
      <property name="text">
-      <string>Generate XDNA Deposit Address</string>
+      <string>Generate PUC Deposit Address</string>
      </property>
      <property name="icon">
-      <iconset resource="../xdna.qrc">
+      <iconset resource="../puc.qrc">
        <normaloff>:/icons/bitcoin</normaloff>:/icons/bitcoin</iconset>
      </property>
     </widget>
@@ -3206,7 +3206,7 @@
        <string/>
       </property>
       <property name="pixmap">
-       <pixmap resource="../xdna.qrc">:/icons/transaction_1</pixmap>
+       <pixmap resource="../puc.qrc">:/icons/transaction_1</pixmap>
       </property>
       <property name="scaledContents">
        <bool>true</bool>
@@ -3253,7 +3253,7 @@
       <string>Update API Keys</string>
      </property>
      <property name="icon">
-      <iconset resource="../xdna.qrc">
+      <iconset resource="../puc.qrc">
        <normaloff>:/icons/bitcoin</normaloff>:/icons/bitcoin</iconset>
      </property>
     </widget>
@@ -3408,7 +3408,7 @@
   </widget>
  </widget>
  <resources>
-  <include location="../xdna.qrc"/>
+  <include location="../puc.qrc"/>
  </resources>
  <connections/>
 </ui>

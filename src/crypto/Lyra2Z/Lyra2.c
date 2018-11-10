@@ -172,7 +172,7 @@ int LYRA2(void *K, uint64_t kLen, const void *pwd, uint64_t pwdlen, const void *
         do {
         //Selects a pseudorandom index row*
         //------------------------------------------------------------------------------------------
-        //rowa = ((unsigned int)state[0]) & (nRows-1);	//(USE THIS IF nRows IS A POWER OF 2)
+        //rowa = ((unsigned int)state[0]) & (nRows-1);	//(USE THIS IF nRows IS A PUC OF 2)
         rowa = ((uint64_t) (state[0])) % nRows; //(USE THIS FOR THE "GENERIC" CASE)
         //------------------------------------------------------------------------------------------
 
@@ -184,7 +184,7 @@ int LYRA2(void *K, uint64_t kLen, const void *pwd, uint64_t pwdlen, const void *
 
         //updates row: goes to the next row to be computed
         //------------------------------------------------------------------------------------------
-        //row = (row + step) & (nRows-1);	//(USE THIS IF nRows IS A POWER OF 2)
+        //row = (row + step) & (nRows-1);	//(USE THIS IF nRows IS A PUC OF 2)
         row = (row + step) % nRows; //(USE THIS FOR THE "GENERIC" CASE)
         //------------------------------------------------------------------------------------------
 
@@ -341,7 +341,7 @@ int LYRA2_old(void *K, uint64_t kLen, const void *pwd, uint64_t pwdlen, const vo
         do {
         //Selects a pseudorandom index row*
         //------------------------------------------------------------------------------------------
-        //rowa = ((unsigned int)state[0]) & (nRows-1);	//(USE THIS IF nRows IS A POWER OF 2)
+        //rowa = ((unsigned int)state[0]) & (nRows-1);	//(USE THIS IF nRows IS A PUC OF 2)
         rowa = ((uint64_t) (state[0])) % nRows; //(USE THIS FOR THE "GENERIC" CASE)
         //------------------------------------------------------------------------------------------
 
@@ -353,7 +353,7 @@ int LYRA2_old(void *K, uint64_t kLen, const void *pwd, uint64_t pwdlen, const vo
 
         //updates row: goes to the next row to be computed
         //------------------------------------------------------------------------------------------
-        //row = (row + step) & (nRows-1);	//(USE THIS IF nRows IS A POWER OF 2)
+        //row = (row + step) & (nRows-1);	//(USE THIS IF nRows IS A PUC OF 2)
         row = (row + step) % nRows; //(USE THIS FOR THE "GENERIC" CASE)
         //------------------------------------------------------------------------------------------
 

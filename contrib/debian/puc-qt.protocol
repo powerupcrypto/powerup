@@ -1,0 +1,11 @@
+[Protocol]
+exec=puc-qt '%u'
+protocol=puc
+input=none
+output=none
+helper=true
+listing=
+reading=false
+writing=false
+makedir=false
+deleting=false

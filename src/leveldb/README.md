@@ -64,7 +64,7 @@ than a disk seek (typically 10 milliseconds).  We suspect that this is
 because the hard disk itself is buffering the update in its memory and
 responding before the data has been written to the platter.  This may
 or may not be safe based on whether or not the hard disk has enough
-power to save its memory in the event of a power failure.
+puc to save its memory in the event of a puc failure.
 
 ## Read performance
 

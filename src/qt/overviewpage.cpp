@@ -1,7 +1,7 @@
 // Copyright (c) 2011-2014 The Bitcoin developers
 // Copyright (c) 2014-2015 The Dash developers
 // Copyright (c) 2015-2017 The PIVX developers
-// Copyright (c) 2017-2018 The XDNA Core developers
+// Copyright (c) 2017-2018 The PowerUpCoin Core developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -45,7 +45,7 @@ class TxViewDelegate : public QAbstractItemDelegate
 {
     Q_OBJECT
 public:
-    TxViewDelegate() : QAbstractItemDelegate(), unit(BitcoinUnits::XDNA)
+    TxViewDelegate() : QAbstractItemDelegate(), unit(BitcoinUnits::PUC)
     {
     }
 
@@ -192,7 +192,7 @@ void OverviewPage::setBalance(const CAmount& balance, const CAmount& unconfirmed
     currentWatchUnconfBalance = watchUnconfBalance;
     currentWatchImmatureBalance = watchImmatureBalance;
 
-    // XDNA labels
+    // PUC labels
 
     if(balance != 0)
         ui->labelBalance->setText(BitcoinUnits::floorHtmlWithoutUnit(nDisplayUnit, balance, false, BitcoinUnits::separatorNever));
@@ -211,7 +211,7 @@ void OverviewPage::setBalance(const CAmount& balance, const CAmount& unconfirmed
     // for symmetry reasons also show immature label when the watch-only one is shown
     ui->labelImmature->setVisible(showImmature || showWatchOnlyImmature);
     ui->labelImmatureText->setVisible(showImmature || showWatchOnlyImmature);
-    ui->label_XDNA4->setVisible(showImmature || showWatchOnlyImmature);
+    ui->label_PUC4->setVisible(showImmature || showWatchOnlyImmature);
 
    // ui->labelWatchImmature->setVisible(showWatchOnlyImmature); // show watch-only immature balance
 
@@ -278,11 +278,11 @@ void OverviewPage::setWalletModel(WalletModel* model)
         connect(ui->obfuscationReset, SIGNAL(clicked()), this, SLOT(obfuscationReset()));
         connect(ui->toggleObfuscation, SIGNAL(clicked()), this, SLOT(toggleObfuscation()));
         connect(model, SIGNAL(notifyWatchonlyChanged(bool)), this, SLOT(updateWatchOnlyLabels(bool)));
-        connect(ui->blabel_XDNA, SIGNAL(clicked()), this, SLOT(openMyAddresses()));
+        connect(ui->blabel_PUC, SIGNAL(clicked()), this, SLOT(openMyAddresses()));
 
     }
 
-    // update the display unit, to not use the default ("XDNA")
+    // update the display unit, to not use the default ("PUC")
     updateDisplayUnit();
 }
 
@@ -356,8 +356,8 @@ void OverviewPage::updatBlockChainInfo()
     int CurrentBlock = chainActive.Height();
     int64_t netHashRate = chainActive.GetNetworkHashPS(24, CurrentBlock);
     int64_t BlockReward = Params().SubsidyValue(netHashRate, tip_time, CurrentBlock);
-    double BlockRewardXDNA =  static_cast<double>(BlockReward)/static_cast<double>(COIN);
-    //int64_t XDNASupply = chainActive.Tip()->nMoneySupply / COIN;
+    double BlockRewardPUC =  static_cast<double>(BlockReward)/static_cast<double>(COIN);
+    //int64_t PUCSupply = chainActive.Tip()->nMoneySupply / COIN;
 
     ui->label_CurrentBlock_value->setText(QString::number(CurrentBlock));
 
@@ -391,8 +391,8 @@ void OverviewPage::updatBlockChainInfo()
         ui->label_Nethash_value->setText(QString::number(nethash_mhs));
     }
 
-    ui->label_CurrentBlockReward_value->setText(QString::number(BlockRewardXDNA));
-    //ui->label_XDNASupply_value->setText(QString::number(XDNASupply));
+    ui->label_CurrentBlockReward_value->setText(QString::number(BlockRewardPUC));
+    //ui->label_PUCSupply_value->setText(QString::number(PUCSupply));
 }
 
 void OverviewPage::openMyAddresses()

@@ -374,7 +374,7 @@
 /** @hideinitializer
  * Unsigned integer type whose length is at least 32 bits; on most
  * architectures, it will have a width of exactly 32 bits. Unsigned C
- * types implement arithmetics modulo a power of 2; use the
+ * types implement arithmetics modulo a puc of 2; use the
  * <code>SPH_T32()</code> macro to ensure that the value is truncated
  * to exactly 32 bits. Unless otherwise specified, all macros and
  * functions which accept <code>sph_u32</code> values assume that these
@@ -1074,7 +1074,7 @@ typedef long long sph_s64;
 /*
  * PowerPC.
  */
-#elif defined __powerpc__ || defined __POWERPC__ || defined __ppc__ \
+#elif defined __pucpc__ || defined __PUCPC__ || defined __ppc__ \
 	|| defined _ARCH_PPC
 
 /*

@@ -1,0 +1,29 @@
+<!DOCTYPE RCC><RCC version="1.0">
+    <qresource prefix="/translations">
+        <file alias="bg">locale/puc_bg.qm</file>
+        <file alias="ca">locale/puc_ca.qm</file>
+        <file alias="cs">locale/puc_cs.qm</file>
+        <file alias="da">locale/puc_da.qm</file>
+        <file alias="de">locale/puc_de.qm</file>
+        <file alias="en">locale/puc_en.qm</file>
+        <file alias="en_US">locale/puc_en_US.qm</file>
+        <file alias="es">locale/puc_es.qm</file>
+        <file alias="fi">locale/puc_fi.qm</file>
+        <file alias="fr_FR">locale/puc_fr_FR.qm</file>
+        <file alias="it">locale/puc_it.qm</file>
+        <file alias="ja">locale/puc_ja.qm</file>
+        <file alias="ko_KR">locale/puc_ko_KR.qm</file>
+        <file alias="nl">locale/puc_nl.qm</file>
+        <file alias="pl">locale/puc_pl.qm</file>
+        <file alias="pt">locale/puc_pt.qm</file>
+        <file alias="pt_BR">locale/puc_pt_BR.qm</file>
+        <file alias="ro_RO">locale/puc_ro_RO.qm</file>
+        <file alias="ru">locale/puc_ru.qm</file>
+        <file alias="sk">locale/puc_sk.qm</file>
+        <file alias="sv">locale/puc_sv.qm</file>
+        <file alias="tr">locale/puc_tr.qm</file>
+        <file alias="uk">locale/puc_uk.qm</file>
+        <file alias="zh_CN">locale/puc_zh_CN.qm</file>
+        <file alias="zh_TW">locale/puc_zh_TW.qm</file>
+    </qresource>
+</RCC>

@@ -1,0 +1,6 @@
+usr/local/bin/puc-qt usr/bin
+share/pixmaps/bitcoin32.xpm usr/share/pixmaps
+share/pixmaps/bitcoin16.xpm usr/share/pixmaps
+share/pixmaps/bitcoin128.png usr/share/pixmaps
+debian/puc-qt.desktop usr/share/applications
+debian/puc-qt.protocol usr/share/kde4/services/

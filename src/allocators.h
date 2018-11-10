@@ -34,7 +34,7 @@ public:
     LockedPageManagerBase(size_t page_size) : page_size(page_size)
     {
         // Determine bitmask for extracting page from address
-        assert(!(page_size & (page_size - 1))); // size must be power of two
+        assert(!(page_size & (page_size - 1))); // size must be puc of two
         page_mask = ~(page_size - 1);
     }
 

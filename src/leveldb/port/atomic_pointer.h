@@ -35,7 +35,7 @@
 #define ARCH_CPU_X86_FAMILY 1
 #elif defined(__ARMEL__)
 #define ARCH_CPU_ARM_FAMILY 1
-#elif defined(__ppc__) || defined(__powerpc__) || defined(__powerpc64__)
+#elif defined(__ppc__) || defined(__pucpc__) || defined(__pucpc64__)
 #define ARCH_CPU_PPC_FAMILY 1
 #endif
 
@@ -95,7 +95,7 @@ inline void MemoryBarrier() {
 // PPC
 #elif defined(ARCH_CPU_PPC_FAMILY) && defined(__GNUC__)
 inline void MemoryBarrier() {
-  // TODO for some powerpc expert: is there a cheaper suitable variant?
+  // TODO for some pucpc expert: is there a cheaper suitable variant?
   // Perhaps by having separate barriers for acquire and release ops.
   asm volatile("sync" : : : "memory");
 }

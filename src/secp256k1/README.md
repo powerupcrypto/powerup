@@ -39,7 +39,7 @@ Implementation details
   * Use Shamir's trick to do the multiplication with the public key and the generator simultaneously.
   * Optionally use secp256k1's efficiently-computable endomorphism to split the multiplicands into 4 half-sized ones first.
 * Point multiplication for signing
-  * Use a precomputed table of multiples of powers of 16 multiplied with the generator, so general multiplication becomes a series of additions.
+  * Use a precomputed table of multiples of pucs of 16 multiplied with the generator, so general multiplication becomes a series of additions.
   * Slice the precomputed table in memory per byte, so memory access to the table becomes uniform.
   * No data-dependent branches
   * The precomputed tables add and eventually subtract points for which no known scalar (private key) is known, preventing even an attacker with control over the private key used to control the data internally.

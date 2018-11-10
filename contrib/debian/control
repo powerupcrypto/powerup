@@ -1,4 +1,4 @@
-Source: xdna
+Source: puc
 Section: utils
 Priority: optional
 Build-Depends: debhelper,
@@ -20,15 +20,15 @@ Build-Depends: debhelper,
  libqrencode-dev,
  libprotobuf-dev, protobuf-compiler
 Standards-Version: 1.0
-Homepage: http://www.xdna.io
-Vcs-Git: git://github.com/XDNA-Core/XDNA.git
-Vcs-Browser: http://github.com/XDNA-Core/XDNA
+Homepage: http://www.puc.io
+Vcs-Git: git://github.com/PUC-Core/PUC.git
+Vcs-Browser: http://github.com/PUC-Core/PUC
 
-Package: xdnad
+Package: pucd
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: peer-to-peer network based digital currency - daemon
- XDNA is a free open source peer-to-peer electronic cash system that
+ PUC is a free open source peer-to-peer electronic cash system that
  is completely decentralized, without the need for a central server or
  trusted parties.  Users hold the crypto keys to their own money and
  transact directly with each other, with the help of a P2P network to
@@ -37,14 +37,14 @@ Description: peer-to-peer network based digital currency - daemon
  Full transaction history is stored locally at each client.  This
  requires 1+ GB of space, slowly growing.
  .
- This package provides the daemon, xdnad, and the CLI tool
- xdna-cli to interact with the daemon.
+ This package provides the daemon, pucd, and the CLI tool
+ puc-cli to interact with the daemon.
 
-Package: xdna-qt
+Package: puc-qt
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: peer-to-peer network based digital currency - Qt GUI
- XDNA is a free open source peer-to-peer electronic cash system that
+ PUC is a free open source peer-to-peer electronic cash system that
  is completely decentralized, without the need for a central server or
  trusted parties.  Users hold the crypto keys to their own money and
  transact directly with each other, with the help of a P2P network to
@@ -53,4 +53,4 @@ Description: peer-to-peer network based digital currency - Qt GUI
  Full transaction history is stored locally at each client.  This
  requires 1+ GB of space, slowly growing.
  .
- This package provides XDNA-Qt, a GUI for XDNA based on Qt.
+ This package provides PUC-Qt, a GUI for PUC based on Qt.

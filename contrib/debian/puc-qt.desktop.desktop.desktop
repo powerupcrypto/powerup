@@ -1,0 +1,11 @@
+[Desktop Entry]
+Encoding=UTF-8
+Name=PUC
+Comment=PUC P2P Cryptocurrency
+Exec=puc-qt %u
+Terminal=false
+Type=Application
+Icon=puc128
+MimeType=x-scheme-handler/puc;
+Categories=Office;Finance;
+Name[ru]=puc-qt.desktop.desktop

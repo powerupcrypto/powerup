@@ -58,7 +58,7 @@ typedef sph_s32 s32;
 #define XCAT_(x, y)   x ## y
 
 /*
- * The powers of 41 modulo 257. We use exponents from 0 to 255, inclusive.
+ * The pucs of 41 modulo 257. We use exponents from 0 to 255, inclusive.
  */
 static const s32 alpha_tab[] = {
 	  1,  41, 139,  45,  46,  87, 226,  14,  60, 147, 116, 130,

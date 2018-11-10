@@ -1,0 +1,26 @@
+# /etc/conf.d/pucd: config file for /etc/init.d/pucd
+
+# Config file location
+#BITCOIND_CONFIGFILE="/etc/puc/puc.conf"
+
+# What directory to write pidfile to?  (created and owned by $BITCOIND_USER)
+#BITCOIND_PIDDIR="/var/run/pucd"
+
+# What filename to give the pidfile
+#BITCOIND_PIDFILE="${BITCOIND_PIDDIR}/pucd.pid"
+
+# Where to write pucd data (be mindful that the blockchain is large)
+#BITCOIND_DATADIR="/var/lib/pucd"
+
+# User and group to own pucd process
+#BITCOIND_USER="puc"
+#BITCOIND_GROUP="puc"
+
+# Path to pucd executable
+#BITCOIND_BIN="/usr/bin/pucd"
+
+# Nice value to run pucd under
+#BITCOIND_NICE=0
+
+# Additional options (avoid -conf and -datadir, use flags above)
+BITCOIND_OPTS=""
