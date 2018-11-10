@@ -1620,7 +1620,7 @@ double ConvertBitsToDouble(unsigned int nBits)
 CAmount GetBlockValue(int nHeight, uint32_t nTime)
 {
     if (nHeight <= Params().LAST_POW_BLOCK()) {
-        return 100 * COIN;
+        return 5000 * COIN;
       // POS Year 1
     } else if (nHeight <= 1965600 && nHeight > Params().LAST_POW_BLOCK()) {
         return 57 * COIN;

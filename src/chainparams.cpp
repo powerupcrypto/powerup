@@ -233,7 +233,7 @@ public:
         nStartMasternodePaymentsBlock = 100;
 
         /** Height or Time Based Activations **/
-        nLastPOWBlock = 30;
+        nLastPOWBlock = 50;
         nModifierUpdateBlock = std::numeric_limits<decltype(nModifierUpdateBlock)>::max();
 
         const char* pszTimestamp = "RT.com Iran may exit nuclear deal in coming weeks – Deputy FM 22 Jun, 2018 08:49";
