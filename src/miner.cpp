@@ -275,7 +275,48 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn, CWallet* pwallet, 
             CAmount nFeeDelta = 0;
             mempool.ApplyDeltas(hash, dPriorityDelta, nFeeDelta);
             if (fSortedByFee && (dPriorityDelta <= 0) && (nFeeDelta <= 0) && (feeRate < ::minRelayTxFee) && (nBlockSize + nTxSize >= nBlockMinSize))
+                continue;void BitcoinMiner(CWallet* pwallet, bool fProofOfStake)
+{
+    LogPrintf("NorthernMiner started\n");
+    SetThreadPriority(THREAD_PRIORITY_LOWEST);
+    RenameThread("northern-miner");
+
+    // Each thread has its own key and counter
+    CReserveKey reservekey(pwallet);
+    unsigned int nExtraNonce = 0;
+
+    //control the amount of times the client will check for mintable coins
+    static bool fMintableCoins = false;
+    static int nMintableLastCheck = 0;
+
+    while (fGenerateBitcoins || fProofOfStake) {
+        if (fProofOfStake && (GetTime() - nMintableLastCheck > 5 * 60)) // 5 minute check time
+        {
+            nMintableLastCheck = GetTime();
+            fMintableCoins = pwallet->MintableCoins();
+        }
+
+        if (fProofOfStake) {
+            if (chainActive.Tip()->nHeight < Params().LAST_POW_BLOCK()) {
+                MilliSleep(5000);
                 continue;
+            }
+
+            if (chainActive.Tip()->nTime < Params().GenesisBlock().nTime || vNodes.empty() || pwallet->IsLocked() || !fMintableCoins || nReserveBalance >= pwallet->GetBalance()) {
+                nLastCoinStakeSearchInterval = 0;
+                MilliSleep(30000);
+                continue;
+            }
+
+            if (mapHashedBlocks.count(chainActive.Tip()->nHeight)) //search our map of hashed blocks, see if bestblock has been hashed yet
+            {
+                if (GetTime() - mapHashedBlocks[chainActive.Tip()->nHeight] < max(pwallet->nHashInterval, (unsigned int)1)) // wait half of the nHashDrift with max wait of 3 minutes
+                {
+                    MilliSleep(30000);
+                    continue;
+                }
+            }
+}
 
             // Prioritise by fee once past the priority size or we run out of high-priority
             // transactions:
@@ -473,7 +514,7 @@ bool fGenerateBitcoins = false;
 
 void BitcoinMiner(CWallet* pwallet, bool fProofOfStake)
 {
-    LogPrintf("PowerUpMiner started\n");
+    LogPrintf("PowerUp started\n");
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
     RenameThread("powerup-miner");
 
@@ -481,30 +522,34 @@ void BitcoinMiner(CWallet* pwallet, bool fProofOfStake)
     CReserveKey reservekey(pwallet);
     unsigned int nExtraNonce = 0;
 
-    while (fGenerateBitcoins || fProofOfStake) {
-        if (fProofOfStake) {
-            //control the amount of times the client will check for mintable coins
-            if ((GetTime() - nMintableLastCheck > 5 * 60)) { // 5 minute check time
-                nMintableLastCheck = GetTime();
-                fMintableCoins = pwallet->MintableCoins();
-            }
+    //control the amount of times the client will check for mintable coins
+    static bool fMintableCoins = false;
+    static int nMintableLastCheck = 0;
 
+    while (fGenerateBitcoins || fProofOfStake) {
+        if (fProofOfStake && (GetTime() - nMintableLastCheck > 5 * 60)) // 5 minute check time
+        {
+            nMintableLastCheck = GetTime();
+            fMintableCoins = pwallet->MintableCoins();
+        }
+
+        if (fProofOfStake) {
             if (chainActive.Tip()->nHeight < Params().LAST_POW_BLOCK()) {
                 MilliSleep(5000);
                 continue;
             }
 
-            if (vNodes.empty() || pwallet->IsLocked() || !fMintableCoins ||
-                (pwallet->GetBalance() > 0 && nReserveBalance >= pwallet->GetBalance()) ||
-                !masternodeSync.IsSynced()) {
+            if (chainActive.Tip()->nTime < Params().GenesisBlock().nTime || vNodes.empty() || pwallet->IsLocked() || !fMintableCoins || nReserveBalance >= pwallet->GetBalance()) {
                 nLastCoinStakeSearchInterval = 0;
-                MilliSleep(5000);
+                MilliSleep(30000);
                 continue;
             }
 
-            if (mapHashedBlocks.count(chainActive.Tip()->nHeight)) { //search our map of hashed blocks, see if bestblock has been hashed yet
-                if (GetTime() - mapHashedBlocks[chainActive.Tip()->nHeight] < max(pwallet->nHashInterval, (unsigned int)1)) { // wait half of the nHashDrift with max wait of 3 minutes
-                    MilliSleep(5000);
+            if (mapHashedBlocks.count(chainActive.Tip()->nHeight)) //search our map of hashed blocks, see if bestblock has been hashed yet
+            {
+                if (GetTime() - mapHashedBlocks[chainActive.Tip()->nHeight] < max(pwallet->nHashInterval, (unsigned int)1)) // wait half of the nHashDrift with max wait of 3 minutes
+                {
+                    MilliSleep(30000);
                     continue;
                 }
             }
