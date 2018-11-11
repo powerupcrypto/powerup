@@ -230,7 +230,7 @@ public:
         nMasternodeCountDrift = 3;
         nMaxMoneyOut = 367452000 * COIN;
 
-        nStartMasternodePaymentsBlock = 100;
+        nStartMasternodePaymentsBlock = 30;
 
         /** Height or Time Based Activations **/
         nLastPOWBlock = 50;
