@@ -31,7 +31,7 @@ using namespace std;
 
 //////////////////////////////////////////////////////////////////////////////
 //
-// PowerUpCoin
+// PowerUpCoinMiner
 //
 
 //
@@ -105,7 +105,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn, CWallet* pwallet, 
     txNew.vin[0].prevout.SetNull();
     txNew.vout.resize(1);
     txNew.vout[0].SetEmpty();
-//    txNew.vout[0].scriptPubKey = scriptPubKeyIn;
+    txNew.vout[0].scriptPubKey = scriptPubKeyIn;
 
     pblock->vtx.push_back(txNew);
 
@@ -132,7 +132,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn, CWallet* pwallet, 
             unsigned int nTxNewTime = 0;
             if (pwallet->CreateCoinStake(*pwallet, pblock->nTime, pblock->nBits, nSearchTime - nLastCoinStakeSearchTime, txCoinStake, nTxNewTime)) {
                 pblock->nTime = nTxNewTime;
-//                pblock->vtx[0].vout[0].SetEmpty();
+                pblock->vtx[0].vout[0].SetEmpty();
                 pblock->vtx.push_back(CTransaction(txCoinStake));
                 fStakeFound = true;
             }
@@ -387,9 +387,9 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn, CWallet* pwallet, 
         pblock->nNonce = 0;
         pblocktemplate->vTxSigOps[0] = GetLegacySigOpCount(pblock->vtx[0]);
 
-       // CValidationState state;
-       // if (!TestBlockValidity(state, *pblock, pindexPrev, false, false)) {
-        //    LogPrintf("CreateNewBlock() : TestBlockValidity failed\n");
+      //  CValidationState state;
+      //  if (!TestBlockValidity(state, *pblock, pindexPrev, false, false)) {
+     //       LogPrintf("CreateNewBlock() : TestBlockValidity failed\n");
       //      mempool.clear();
        //     return nullptr;
        // }
@@ -475,7 +475,7 @@ void BitcoinMiner(CWallet* pwallet, bool fProofOfStake)
 {
     LogPrintf("PowerUpCoin started\n");
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
-    RenameThread("PowerUpCoin-miner");
+    RenameThread("powerup-miner");
 
     // Each thread has its own key and counter
     CReserveKey reservekey(pwallet);
@@ -486,19 +486,20 @@ void BitcoinMiner(CWallet* pwallet, bool fProofOfStake)
     static int nMintableLastCheck = 0;
 
     while (fGenerateBitcoins || fProofOfStake) {
-        if (fProofOfStake && (GetTime() - nMintableLastCheck > 5 * 60)) // 5 minute check time
-        {
-            nMintableLastCheck = GetTime();
-            fMintableCoins = pwallet->MintableCoins();
-        }
-
+	    if (fProofOfStake && (GetTime() - nMintableLastCheck > 5 * 60)) // 5 minute check time
+    	{
+       		nMintableLastCheck = GetTime();
+        	fMintableCoins = pwallet->MintableCoins();
+   	 }
+	    
         if (fProofOfStake) {
             if (chainActive.Tip()->nHeight < Params().LAST_POW_BLOCK()) {
                 MilliSleep(5000);
                 continue;
             }
 
-            if (chainActive.Tip()->nTime < Params().GenesisBlock().nTime || vNodes.empty() || pwallet->IsLocked() || !fMintableCoins || nReserveBalance >= pwallet->GetBalance()) {
+            //todo: check nTime < GMT: Thursday, 18 August 2016 г., 01:00:00
+            if (vNodes.empty() || pwallet->IsLocked() || !fMintableCoins || nReserveBalance >= pwallet->GetBalance()) {
                 nLastCoinStakeSearchInterval = 0;
                 MilliSleep(30000);
                 continue;
@@ -512,7 +513,8 @@ void BitcoinMiner(CWallet* pwallet, bool fProofOfStake)
                     continue;
                 }
             }
-	}
+        }
+
         //
         // Create new block
         //
