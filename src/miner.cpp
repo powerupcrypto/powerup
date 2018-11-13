@@ -2,7 +2,7 @@
 // Copyright (c) 2009-2014 The Bitcoin developers
 // Copyright (c) 2014-2015 The Dash developers
 // Copyright (c) 2015-2017 The PIVX developers
-// Copyright (c) 2017-2018 The PowerUpCoin Core developers
+// Copyright (c) 2017-2018 The XDNA Core developers
 // Distributed under the MIT/X11 software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
@@ -31,7 +31,7 @@ using namespace std;
 
 //////////////////////////////////////////////////////////////////////////////
 //
-// PowerUpCoinMiner
+// PowerUpMiner
 //
 
 //
@@ -108,7 +108,6 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn, CWallet* pwallet, 
     txNew.vout[0].scriptPubKey = scriptPubKeyIn;
 
     pblock->vtx.push_back(txNew);
-
     pblocktemplate->vTxFees.push_back(-1);   // updated at end
     pblocktemplate->vTxSigOps.push_back(-1); // updated at end
 
@@ -118,13 +117,8 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn, CWallet* pwallet, 
     if (fProofOfStake) {
         boost::this_thread::interruption_point();
         pblock->nTime = GetAdjustedTime();
-
-        { LOCK(cs_main);
-
-            CBlockIndex* pindexPrev = chainActive.Tip();
-            pblock->nBits = GetNextWorkRequired(pindexPrev, pblock->nTime);
-        }
-
+        CBlockIndex* pindexPrev = chainActive.Tip();
+        pblock->nBits = GetNextWorkRequired(pindexPrev, pblock);
         CMutableTransaction txCoinStake;
         int64_t nSearchTime = pblock->nTime; // search to current time
         bool fStakeFound = false;
@@ -362,7 +356,7 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn, CWallet* pwallet, 
 
             txReward.vout[reward_out_idx].nValue -= mn_reward;
 
-            // PowerUpCoin fees
+            //  fees
             CScript scriptDevPubKeyIn  = CScript{} << Params().xDNADevKey() << OP_CHECKSIG;
             CScript scriptFundPubKeyIn = CScript{} << Params().xDNAFundKey() << OP_CHECKSIG;
 
@@ -387,12 +381,12 @@ CBlockTemplate* CreateNewBlock(const CScript& scriptPubKeyIn, CWallet* pwallet, 
         pblock->nNonce = 0;
         pblocktemplate->vTxSigOps[0] = GetLegacySigOpCount(pblock->vtx[0]);
 
-      //  CValidationState state;
-      //  if (!TestBlockValidity(state, *pblock, pindexPrev, false, false)) {
+     //   CValidationState state;
+     //   if (!TestBlockValidity(state, *pblock, pindexPrev, false, false)) {
      //       LogPrintf("CreateNewBlock() : TestBlockValidity failed\n");
-      //      mempool.clear();
-       //     return nullptr;
-       // }
+       //     mempool.clear();
+        //    return nullptr;
+        //}
     }
 
     return pblocktemplate.release();
@@ -443,7 +437,7 @@ bool ProcessBlockFound(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
     {
         LOCK(cs_main);
         if (pblock->hashPrevBlock != chainActive.Tip()->GetBlockHash())
-            return error("PowerUpCoin : generated block is stale");
+            return error("XDNAMiner : generated block is stale");
     }
 
     // Remove key from key pool
@@ -458,7 +452,7 @@ bool ProcessBlockFound(CBlock* pblock, CWallet& wallet, CReserveKey& reservekey)
     // Process this block the same as if we had received it from another node
     CValidationState state;
     if (!ProcessNewBlock(state, NULL, pblock))
-        return error("PowerUpCoin : ProcessNewBlock, block not accepted");
+        return error("XDNAMiner : ProcessNewBlock, block not accepted");
 
     for (CNode* node : vNodes) {
         node->PushInventory(CInv(MSG_BLOCK, pblock->GetHash()));
@@ -473,9 +467,9 @@ bool fGenerateBitcoins = false;
 
 void BitcoinMiner(CWallet* pwallet, bool fProofOfStake)
 {
-    LogPrintf("PowerUpCoin started\n");
+    LogPrintf("XDNAMiner started\n");
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
-    RenameThread("powerup-miner");
+    RenameThread("xdna-miner");
 
     // Each thread has its own key and counter
     CReserveKey reservekey(pwallet);
@@ -485,13 +479,13 @@ void BitcoinMiner(CWallet* pwallet, bool fProofOfStake)
     static bool fMintableCoins = false;
     static int nMintableLastCheck = 0;
 
+    if (fProofOfStake && (GetTime() - nMintableLastCheck > 5 * 60)) // 5 minute check time
+    {
+        nMintableLastCheck = GetTime();
+        fMintableCoins = pwallet->MintableCoins();
+    }
+
     while (fGenerateBitcoins || fProofOfStake) {
-	    if (fProofOfStake && (GetTime() - nMintableLastCheck > 5 * 60)) // 5 minute check time
-    	{
-       		nMintableLastCheck = GetTime();
-        	fMintableCoins = pwallet->MintableCoins();
-   	 }
-	    
         if (fProofOfStake) {
             if (chainActive.Tip()->nHeight < Params().LAST_POW_BLOCK()) {
                 MilliSleep(5000);
@@ -499,17 +493,18 @@ void BitcoinMiner(CWallet* pwallet, bool fProofOfStake)
             }
 
             //todo: check nTime < GMT: Thursday, 18 August 2016 г., 01:00:00
-            if (vNodes.empty() || pwallet->IsLocked() || !fMintableCoins || nReserveBalance >= pwallet->GetBalance()) {
+            while (chainActive.Tip()->nTime < 1471482000 || vNodes.empty() || pwallet->IsLocked() || !fMintableCoins || nReserveBalance >= pwallet->GetBalance() || !masternodeSync.IsSynced()) {
                 nLastCoinStakeSearchInterval = 0;
-                MilliSleep(30000);
-                continue;
+                MilliSleep(5000);
+                if (!fGenerateBitcoins && !fProofOfStake)
+                    continue;
             }
 
             if (mapHashedBlocks.count(chainActive.Tip()->nHeight)) //search our map of hashed blocks, see if bestblock has been hashed yet
             {
                 if (GetTime() - mapHashedBlocks[chainActive.Tip()->nHeight] < max(pwallet->nHashInterval, (unsigned int)1)) // wait half of the nHashDrift with max wait of 3 minutes
                 {
-                    MilliSleep(30000);
+                    MilliSleep(5000);
                     continue;
                 }
             }
@@ -547,7 +542,7 @@ void BitcoinMiner(CWallet* pwallet, bool fProofOfStake)
             continue;
         }
 
-        LogPrintf("Running PowerUpCoin with %u transactions in block (%u bytes)\n", pblock->vtx.size(),
+        LogPrintf("Running XDNAMiner with %u transactions in block (%u bytes)\n", pblock->vtx.size(),
             ::GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION));
 
         //
