@@ -1847,10 +1847,10 @@ void UpdateCoins(const CTransaction& tx, CValidationState& state, CCoinsViewCach
 
 bool CScriptCheck::operator()()
 {
-  //  const CScript& scriptSig = ptxTo->vin[nIn].scriptSig;
-  //  if (!VerifyScript(scriptSig, scriptPubKey, nFlags, CachingTransactionSignatureChecker(ptxTo, nIn, cacheStore), &error)) {
-  //      return ::error("CScriptCheck(): %s:%d VerifySignature failed: %s", ptxTo->GetHash().ToString(), nIn, ScriptErrorString(error));
-  //  }
+    const CScript& scriptSig = ptxTo->vin[nIn].scriptSig;
+    if (!VerifyScript(scriptSig, scriptPubKey, nFlags, CachingTransactionSignatureChecker(ptxTo, nIn, cacheStore), &error)) {
+        return ::error("CScriptCheck(): %s:%d VerifySignature failed: %s", ptxTo->GetHash().ToString(), nIn, ScriptErrorString(error));
+   }
     return true;
 }
 
@@ -2451,10 +2451,10 @@ bool static ConnectTip(CValidationState& state, CBlockIndex* pindexNew, CBlock* 
         CInv inv(MSG_BLOCK, pindexNew->GetBlockHash());
         bool rv = ConnectBlock(*pblock, state, pindexNew, view, false, fAlreadyChecked);
         g_signals.BlockChecked(*pblock, state);
-       // if (!rv) {
-        //    if (state.IsInvalid())
-        //        InvalidBlockFound(pindexNew, state);
-         //   return error("ConnectTip() : ConnectBlock %s failed", pindexNew->GetBlockHash().ToString());
+        if (!rv) {
+            if (state.IsInvalid())
+                InvalidBlockFound(pindexNew, state);
+            return error("ConnectTip() : ConnectBlock %s failed", pindexNew->GetBlockHash().ToString());
         }
         mapBlockSource.erase(inv.hash);
         nTime3 = GetTimeMicros();
